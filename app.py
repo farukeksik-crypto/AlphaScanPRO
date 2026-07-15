@@ -9,7 +9,9 @@ from engine.data_engine import DataEngine
 from engine.diagnostics import run_diagnostics
 from ui.dashboard_page import render_dashboard
 from ui.diagnostics_page import render_diagnostics
+from ui.relative_strength_page import render_relative_strength
 from ui.scanner_pages import render_bist, render_commodity, render_crypto
+
 
 st.set_page_config(
     page_title="AlphaScan PRO",
@@ -17,31 +19,43 @@ st.set_page_config(
     layout="wide",
 )
 
+
 cache_engine = CacheEngine(CACHE_DIR)
 data_engine = DataEngine(cache_engine)
 database = Database(DATABASE_FILE)
 watchlists = load_watchlists()
 
+
 st.sidebar.title("📈 AlphaScan PRO")
+
 page = st.sidebar.radio(
     "Panel",
     [
         "Dashboard",
         "Arındırma 0",
+        "Göreceli Güç",
         "Kripto",
         "Emtia",
         "Sistem Durumu",
     ],
 )
 
+
 if page == "Dashboard":
     render_dashboard(cache_engine)
+
 elif page == "Arındırma 0":
     render_bist(data_engine, watchlists)
+
+elif page == "Göreceli Güç":
+    render_relative_strength(data_engine, watchlists)
+
 elif page == "Kripto":
     render_crypto(data_engine)
+
 elif page == "Emtia":
     render_commodity(data_engine)
+
 elif page == "Sistem Durumu":
     render_diagnostics(
         data_engine=data_engine,
@@ -50,6 +64,7 @@ elif page == "Sistem Durumu":
         run_diagnostics=run_diagnostics,
     )
 
+
 st.caption(
-    "Sprint 2: Ortak sinyal motoru, Arındırma 0, kripto ve emtia taraması."
+    "Sprint 3: Skor, risk ve BIST 100 göreceli güç analizi."
 )

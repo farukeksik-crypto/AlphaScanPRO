@@ -1,0 +1,8 @@
+{
+  "provider": "yahoo",
+  "symbol": "BEGYO.IS",
+  "interval": "1h",
+  "rows": 261,
+  "first_bar": "2026-06-04 09:30:00+03:00",
+  "last_bar": "2026-07-14 17:30:00+03:00"
+}
