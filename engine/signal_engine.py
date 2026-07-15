@@ -4,6 +4,7 @@ import pandas as pd
 
 from engine.indicators import adx, atr, ema, macd, rsi
 from engine.score_engine import calculate_score
+from engine.risk_engine import calculate_risk_levels
 
 
 MIN_BARS = 220
@@ -42,8 +43,8 @@ def evaluate(frame: pd.DataFrame) -> dict:
 
     price = float(row["Close"])
     atr_value = float(row["ATR"]) if pd.notna(row["ATR"]) else 0.0
-    stop = price - atr_value * 2
-    target = price + atr_value * 3
+
+    risk_result = calculate_risk_levels(price, atr_value)
 
     return {
         "ok": True,
@@ -51,9 +52,9 @@ def evaluate(frame: pd.DataFrame) -> dict:
         "quality": quality,
         "score": round(score, 1),
         "price": round(price, 4),
-        "stop": round(stop, 4),
-        "target": round(target, 4),
-        "rsi": round(float(row["RSI"]), 2),
-        "adx": round(float(row["ADX"]), 2),
-        "reason": score_result["reason"],
+        "stop": risk_result["stop"],
+        "target1": risk_result["target1"],
+        "target2": risk_result["target2"],
+        "risk_reward1": risk_result["risk_reward1"],
+        "risk_reward2": risk_result["risk_reward2"],
     }

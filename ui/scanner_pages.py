@@ -28,6 +28,7 @@ def render_bist(data_engine, watchlists):
     if st.button("Arındırma 0 Taramasını Başlat", type="primary"):
         with st.spinner(f"{len(items)} hisse taranıyor..."):
             results, failures = scan_yahoo_items(data_engine, items, workers)
+
         st.session_state["s2_bist_results"] = results
         st.session_state["s2_bist_failures"] = failures
 
@@ -36,9 +37,10 @@ def render_bist(data_engine, watchlists):
 
     if results:
         frame = pd.DataFrame(results)
+
         st.dataframe(
             frame.style.map(_style_decision, subset=["Karar"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:
@@ -46,7 +48,12 @@ def render_bist(data_engine, watchlists):
 
     if failures:
         st.warning(f"{len(failures)} hisse taranamadı.")
-        st.dataframe(pd.DataFrame(failures), use_container_width=True, hide_index=True)
+
+        st.dataframe(
+            pd.DataFrame(failures),
+            width="stretch",
+            hide_index=True,
+        )
 
 
 def render_crypto(data_engine):
@@ -68,6 +75,7 @@ def render_crypto(data_engine):
     if st.button("Kripto Taramasını Başlat", type="primary"):
         with st.spinner(f"{len(pairs)} coin taranıyor..."):
             rows, failures = scan_crypto(data_engine, pairs)
+
         st.session_state["s2_crypto_results"] = rows
         st.session_state["s2_crypto_failures"] = failures
 
@@ -76,9 +84,10 @@ def render_crypto(data_engine):
 
     if rows:
         frame = pd.DataFrame(rows)
+
         st.dataframe(
             frame.style.map(_style_decision, subset=["Karar"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:
@@ -86,7 +95,12 @@ def render_crypto(data_engine):
 
     if failures:
         st.warning(f"{len(failures)} coin taranamadı.")
-        st.dataframe(pd.DataFrame(failures), use_container_width=True, hide_index=True)
+
+        st.dataframe(
+            pd.DataFrame(failures),
+            width="stretch",
+            hide_index=True,
+        )
 
 
 def render_commodity(data_engine):
@@ -104,6 +118,7 @@ def render_commodity(data_engine):
     if st.button("Emtia Taramasını Başlat", type="primary"):
         with st.spinner(f"{len(symbols)} emtia taranıyor..."):
             rows, failures = scan_commodities(data_engine, symbols)
+
         st.session_state["s2_commodity_results"] = rows
         st.session_state["s2_commodity_failures"] = failures
 
@@ -112,9 +127,10 @@ def render_commodity(data_engine):
 
     if rows:
         frame = pd.DataFrame(rows)
+
         st.dataframe(
             frame.style.map(_style_decision, subset=["Karar"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:
@@ -122,4 +138,9 @@ def render_commodity(data_engine):
 
     if failures:
         st.warning(f"{len(failures)} emtia taranamadı.")
-        st.dataframe(pd.DataFrame(failures), use_container_width=True, hide_index=True)
+
+        st.dataframe(
+            pd.DataFrame(failures),
+            width="stretch",
+            hide_index=True,
+        )

@@ -19,7 +19,7 @@ def render_diagnostics(data_engine, cache_engine, database, run_diagnostics):
     rows = st.session_state.get("diagnostic_rows", [])
     if rows:
         frame = pd.DataFrame(rows)
-        st.dataframe(frame, use_container_width=True, hide_index=True)
+        st.dataframe(frame, width="stretch", hide_index=True)
 
         ok_count = int((frame["Durum"] == "OK").sum())
         total_count = len(frame)
@@ -33,4 +33,4 @@ def render_diagnostics(data_engine, cache_engine, database, run_diagnostics):
     if cache_frame.empty:
         st.info("Henüz cache dosyası oluşmadı.")
     else:
-        st.dataframe(cache_frame, use_container_width=True, hide_index=True)
+        st.dataframe(cache_frame, width="stretch", hide_index=True)

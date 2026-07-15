@@ -324,7 +324,7 @@ def render_backtest(data_engine, watchlists: dict):
             },
             na_rep="—",
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -348,6 +348,6 @@ def render_backtest(data_engine, watchlists: dict):
         )
         st.dataframe(
             metric_frame,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
