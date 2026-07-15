@@ -1,0 +1,8 @@
+{
+  "provider": "yahoo",
+  "symbol": "IZFAS.IS",
+  "interval": "1d",
+  "rows": 504,
+  "first_bar": "2024-07-16 00:00:00",
+  "last_bar": "2026-07-14 00:00:00"
+}

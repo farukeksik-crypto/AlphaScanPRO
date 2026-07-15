@@ -1,0 +1,108 @@
+{
+  "arindirma_0": [
+    {
+      "kod": "ALBRK",
+      "ad": "Albaraka Türk"
+    },
+    {
+      "kod": "BAHKM",
+      "ad": "Bahadır Kimya"
+    },
+    {
+      "kod": "BEGYO",
+      "ad": "Batı Ege GYO"
+    },
+    {
+      "kod": "BIMAS",
+      "ad": "BİM Birleşik Mağazalar"
+    },
+    {
+      "kod": "BINBN",
+      "ad": "Bin Ulaşım"
+    },
+    {
+      "kod": "BORSK",
+      "ad": "Borsa İstanbul"
+    },
+    {
+      "kod": "BOSSA",
+      "ad": "Bossa"
+    },
+    {
+      "kod": "CELHA",
+      "ad": "Çelik Halat"
+    },
+    {
+      "kod": "COSMO",
+      "ad": "Cosmos Yatırım"
+    },
+    {
+      "kod": "DARDL",
+      "ad": "Dardanel"
+    },
+    {
+      "kod": "DOFER",
+      "ad": "Dofer Yapı"
+    },
+    {
+      "kod": "EBEBK",
+      "ad": "Ebebek"
+    },
+    {
+      "kod": "EKSUN",
+      "ad": "Eksun Gıda"
+    },
+    {
+      "kod": "ESCOM",
+      "ad": "Escort Teknoloji"
+    },
+    {
+      "kod": "FZLGY",
+      "ad": "Fuzul GYO"
+    },
+    {
+      "kod": "GUNDG",
+      "ad": "Gündoğdu Gıda"
+    },
+    {
+      "kod": "IZFAS",
+      "ad": "İzmir Fırça"
+    },
+    {
+      "kod": "IZYAT",
+      "ad": "İz Yatırım"
+    },
+    {
+      "kod": "KRGYO",
+      "ad": "Körfez GYO"
+    },
+    {
+      "kod": "KTLEV",
+      "ad": "Katılımevim"
+    },
+    {
+      "kod": "KZGYO",
+      "ad": "Kuzugrup GYO"
+    },
+    {
+      "kod": "LUXGY",
+      "ad": "Lüks Kadife"
+    },
+    {
+      "kod": "MTRPL",
+      "ad": "Mete Plastik"
+    },
+    {
+      "kod": "MPARK",
+      "ad": "MLP Sağlık"
+    },
+    {
+      "kod": "PENGD",
+      "ad": "Penguen Gıda"
+    },
+    {
+      "kod": "YUNSA",
+      "ad": "Yünsa"
+    }
+  ]
+}
