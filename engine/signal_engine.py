@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from engine.indicators import adx, atr, ema, macd, rsi
+from engine.score_engine import calculate_score
 
 
 MIN_BARS = 220
@@ -13,6 +14,7 @@ def evaluate(frame: pd.DataFrame) -> dict:
         return {
             "ok": False,
             "decision": "YETERSIZ VERI",
+            "quality": "D",
             "score": 0.0,
             "reason": f"{len(frame) if frame is not None else 0} mum",
         }
@@ -24,6 +26,7 @@ def evaluate(frame: pd.DataFrame) -> dict:
     data["RSI"] = rsi(data["Close"])
     data["MACD"], data["MACD_SIGNAL"], data["MACD_HIST"] = macd(data["Close"])
     data["ATR"] = atr(data)
+
     plus_di, minus_di, adx_value = adx(data)
     data["PLUS_DI"] = plus_di
     data["MINUS_DI"] = minus_di
@@ -31,41 +34,11 @@ def evaluate(frame: pd.DataFrame) -> dict:
     data["VOLUME_MA"] = data["Volume"].rolling(20).mean()
 
     row = data.iloc[-1]
-    score = 0.0
-    reasons = []
 
-    if row["EMA50"] > row["EMA200"]:
-        score += 24
-        reasons.append("EMA50 > EMA200")
-    if row["Close"] > row["EMA50"]:
-        score += 14
-        reasons.append("Fiyat EMA50 üstünde")
-    if row["EMA20"] > row["EMA50"]:
-        score += 10
-        reasons.append("Kısa trend güçlü")
-    if 42 <= row["RSI"] <= 65:
-        score += 16
-        reasons.append("RSI uygun")
-    if row["MACD_HIST"] > 0:
-        score += 14
-        reasons.append("MACD pozitif")
-    if row["ADX"] >= 18 and row["PLUS_DI"] > row["MINUS_DI"]:
-        score += 12
-        reasons.append("ADX yön onayı")
-    if row["Volume"] >= row["VOLUME_MA"] * 0.85:
-        score += 10
-        reasons.append("Hacim yeterli")
-
-    score = min(score, 100.0)
-
-    if score >= 75:
-        decision = "NET AL"
-    elif score >= 62:
-        decision = "AL ADAY"
-    elif score >= 50:
-        decision = "IZLE"
-    else:
-        decision = "BEKLE"
+    score_result = calculate_score(row)
+    score = score_result["score"]
+    decision = score_result["decision"]
+    quality = score_result["quality"]
 
     price = float(row["Close"])
     atr_value = float(row["ATR"]) if pd.notna(row["ATR"]) else 0.0
@@ -75,11 +48,12 @@ def evaluate(frame: pd.DataFrame) -> dict:
     return {
         "ok": True,
         "decision": decision,
+        "quality": quality,
         "score": round(score, 1),
         "price": round(price, 4),
         "stop": round(stop, 4),
         "target": round(target, 4),
         "rsi": round(float(row["RSI"]), 2),
         "adx": round(float(row["ADX"]), 2),
-        "reason": ", ".join(reasons) if reasons else "Koşul yok",
+        "reason": score_result["reason"],
     }

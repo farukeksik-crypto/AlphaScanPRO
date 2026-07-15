@@ -2,7 +2,7 @@
   "provider": "binance",
   "symbol": "AVAX/USDT",
   "interval": "1h",
-  "rows": 1000,
+  "rows": 1003,
   "first_bar": "2026-06-04 03:00:00+00:00",
-  "last_bar": "2026-07-15 18:00:00+00:00"
+  "last_bar": "2026-07-15 21:00:00+00:00"
 }
