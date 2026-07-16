@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import pandas as pd
 import streamlit as st
 
@@ -67,10 +69,11 @@ def _metric_value(metrics: dict, key: str, suffix: str = "") -> str:
 
 
 def render_backtest(data_engine, watchlists: dict):
-    st.title("📉 Backtest PRO")
+    st.title("📉 Backtest PRO v2")
+
     st.caption(
-        "Tarama ile aynı sinyal motorunu kullanır. "
-        "Sinyal kapanmış mumda hesaplanır ve işlem sonraki mum açılışında yapılır."
+        "Sinyal kapanmış mumda hesaplanır. İşlem varsayılan olarak "
+        "sonraki mum açılışında yapılır."
     )
 
     market = st.radio(
@@ -81,6 +84,7 @@ def render_backtest(data_engine, watchlists: dict):
 
     if market == "Arındırma 0":
         items = watchlists.get("arindirma_0", [])
+
         stock_map = {
             item["kod"]: item.get("ad", item["kod"])
             for item in items
@@ -95,6 +99,7 @@ def render_backtest(data_engine, watchlists: dict):
             list(stock_map),
             format_func=lambda code: f"{code} — {stock_map[code]}",
         )
+
         interval = st.selectbox(
             "Zaman dilimi",
             ["1d", "1h", "30m"],
@@ -110,6 +115,7 @@ def render_backtest(data_engine, watchlists: dict):
             "Coin",
             list(CRYPTO_SYMBOLS),
         )
+
         interval = st.selectbox(
             "Zaman dilimi",
             ["1h", "4h", "1d"],
@@ -125,6 +131,7 @@ def render_backtest(data_engine, watchlists: dict):
             "Emtia",
             list(COMMODITY_SYMBOLS),
         )
+
         interval = st.selectbox(
             "Zaman dilimi",
             ["1d", "1h"],
@@ -134,15 +141,37 @@ def render_backtest(data_engine, watchlists: dict):
             }[value],
         )
 
-    st.subheader("Sermaye ve işlem ayarları")
+    st.subheader("Test dönemi")
 
-    c1, c2, c3 = st.columns(3)
+    today = date.today()
+    default_start = today - timedelta(days=365 * 3)
+
+    d1, d2 = st.columns(2)
+
+    start_date = d1.date_input(
+        "Başlangıç tarihi",
+        value=default_start,
+        max_value=today,
+    )
+
+    end_date = d2.date_input(
+        "Bitiş tarihi",
+        value=today,
+        min_value=start_date,
+        max_value=today,
+    )
+
+    st.subheader("Sermaye ve gerçekçilik ayarları")
+
+    c1, c2, c3, c4 = st.columns(4)
+
     initial_cash = c1.number_input(
         "Başlangıç sermayesi",
         min_value=1_000.0,
-        value=100_000.0,
-        step=10_000.0,
+        value=1_000_000.0,
+        step=100_000.0,
     )
+
     commission_pct = c2.number_input(
         "Tek yön komisyon (%)",
         min_value=0.0,
@@ -150,29 +179,65 @@ def render_backtest(data_engine, watchlists: dict):
         step=0.01,
         format="%.2f",
     )
-    position_size_pct = c3.slider(
-        "İşlemde kullanılacak sermaye (%)",
-        min_value=10,
+
+    slippage_pct = c3.number_input(
+        "Fiyat kayması (%)",
+        min_value=0.0,
+        value=0.05,
+        step=0.01,
+        format="%.2f",
+    )
+
+    position_size_pct = c4.slider(
+        "Azami pozisyon büyüklüğü (%)",
+        min_value=5,
         max_value=100,
-        value=95,
+        value=25,
         step=5,
+    )
+
+    c1, c2, c3 = st.columns(3)
+
+    risk_per_trade_pct = c1.number_input(
+        "İşlem başına risk (%)",
+        min_value=0.05,
+        max_value=5.0,
+        value=0.50,
+        step=0.05,
+        format="%.2f",
+    )
+
+    target1_exit_pct = c2.slider(
+        "Hedef 1'de satılacak bölüm (%)",
+        min_value=0,
+        max_value=100,
+        value=50,
+        step=5,
+    )
+
+    close_at_day_end = c3.checkbox(
+        "Gün sonunda pozisyonu kapat",
+        value=interval != "1d",
     )
 
     st.subheader("Strateji ayarları")
 
     c1, c2, c3 = st.columns(3)
+
     minimum_entry_score = c1.slider(
         "Minimum giriş puanı",
         min_value=50,
         max_value=90,
         value=62,
     )
+
     exit_score = c2.slider(
         "Sinyal çıkış puanı",
         min_value=20,
         max_value=60,
         value=42,
     )
+
     max_holding_bars = c3.number_input(
         "Maksimum bekleme mumu",
         min_value=0,
@@ -197,8 +262,14 @@ def render_backtest(data_engine, watchlists: dict):
             st.error("En az bir alım kararı seçmelisin.")
             return
 
+        if start_date > end_date:
+            st.error("Başlangıç tarihi bitiş tarihinden sonra olamaz.")
+            return
+
         try:
-            with st.spinner("Veri hazırlanıyor ve geçmiş işlemler hesaplanıyor..."):
+            with st.spinner(
+                "Veri hazırlanıyor ve geçmiş işlemler hesaplanıyor..."
+            ):
                 frame, display_name = _load_market_data(
                     data_engine=data_engine,
                     watchlists=watchlists,
@@ -207,22 +278,47 @@ def render_backtest(data_engine, watchlists: dict):
                     interval=interval,
                 )
 
+                if frame.empty:
+                    st.error("Seçilen varlık için veri alınamadı.")
+                    return
+
+                frame = frame.copy()
+                frame.index = pd.to_datetime(frame.index)
+
+                start_ts = pd.Timestamp(start_date)
+                end_ts = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+
+                if frame.index.tz is not None:
+                    start_ts = start_ts.tz_localize(frame.index.tz)
+                    end_ts = end_ts.tz_localize(frame.index.tz)
+
+                frame = frame[
+                    (frame.index >= start_ts)
+                    & (frame.index < end_ts)
+                ]
+
                 config = BacktestConfig(
                     initial_cash=float(initial_cash),
                     commission_rate=float(commission_pct) / 100,
+                    slippage_rate=float(slippage_pct) / 100,
                     position_size_pct=float(position_size_pct) / 100,
+                    risk_per_trade_pct=float(risk_per_trade_pct) / 100,
                     entry_decisions=tuple(entry_choice),
                     minimum_entry_score=float(minimum_entry_score),
                     exit_score=float(exit_score),
                     use_signal_exit=bool(use_signal_exit),
                     max_holding_bars=int(max_holding_bars),
+                    close_at_day_end=bool(close_at_day_end),
+                    target1_exit_pct=float(target1_exit_pct) / 100,
                 )
 
                 result = run_backtest(frame, config)
 
             st.session_state["backtest_result"] = result
             st.session_state["backtest_title"] = (
-                f"{display_name} — {interval}"
+                f"{display_name} — {interval} — "
+                f"{start_date.strftime('%d.%m.%Y')} / "
+                f"{end_date.strftime('%d.%m.%Y')}"
             )
 
         except Exception as exc:
@@ -230,6 +326,7 @@ def render_backtest(data_engine, watchlists: dict):
             return
 
     result = st.session_state.get("backtest_result")
+
     if not result:
         st.info("Henüz backtest başlatılmadı.")
         return
@@ -244,68 +341,83 @@ def render_backtest(data_engine, watchlists: dict):
     st.subheader(f"Sonuç — {title}")
 
     c1, c2, c3, c4, c5 = st.columns(5)
+
     c1.metric(
         "Toplam Getiri",
         _metric_value(metrics, "Toplam Getiri %", "%"),
     )
+
     c2.metric(
         "Başarı Oranı",
         _metric_value(metrics, "Başarı Oranı %", "%"),
     )
+
     c3.metric(
         "Kâr Faktörü",
         _metric_value(metrics, "Kâr Faktörü"),
     )
+
     c4.metric(
         "Maksimum Düşüş",
         _metric_value(metrics, "Maksimum Düşüş %", "%"),
     )
+
     c5.metric(
         "Toplam İşlem",
         _metric_value(metrics, "Toplam İşlem"),
     )
 
     c1, c2, c3, c4, c5 = st.columns(5)
+
     c1.metric(
         "Son Bakiye",
         _metric_value(metrics, "Son Bakiye"),
     )
+
     c2.metric(
         "Al-Tut",
         _metric_value(metrics, "Al-Tut Getirisi %", "%"),
     )
+
     c3.metric(
         "Beklenen Değer",
         _metric_value(metrics, "Beklenen Değer"),
     )
+
     c4.metric(
         "Sharpe",
         _metric_value(metrics, "Sharpe"),
     )
+
     c5.metric(
         "Toplam Komisyon",
         _metric_value(metrics, "Toplam Komisyon"),
     )
 
     equity = result["equity"]
+
     if not equity.empty:
         st.subheader("Portföy Bakiye Eğrisi")
+
         chart_data = equity.copy()
         chart_data["Tarih"] = pd.to_datetime(chart_data["Tarih"])
         chart_data = chart_data.set_index("Tarih")
+
         st.line_chart(chart_data[["Bakiye"]])
 
     trades = result["trades"]
+
     st.subheader("İşlem Günlüğü")
 
     if trades.empty:
         st.info(
             "Seçilen ayarlarda işlem oluşmadı. "
-            "Minimum giriş puanını azaltmayı veya zaman dilimini değiştirmeyi deneyebilirsin."
+            "Minimum giriş puanını azaltmayı deneyebilirsin."
         )
         return
 
     display_trades = trades.copy()
+
     display_trades["Tarih"] = pd.to_datetime(
         display_trades["Tarih"]
     ).dt.strftime("%d.%m.%Y %H:%M")
@@ -318,7 +430,8 @@ def render_backtest(data_engine, watchlists: dict):
                 "Komisyon": "{:,.2f}",
                 "Skor": "{:.1f}",
                 "Stop": "{:,.4f}",
-                "Hedef": "{:,.4f}",
+                "Hedef 1": "{:,.4f}",
+                "Hedef 2": "{:,.4f}",
                 "Net K/Z": "{:+,.2f}",
                 "K/Z %": "{:+.2f}%",
             },
@@ -346,6 +459,7 @@ def render_backtest(data_engine, watchlists: dict):
                 "Değer": list(metrics.values()),
             }
         )
+
         st.dataframe(
             metric_frame,
             width="stretch",

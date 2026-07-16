@@ -11,9 +11,13 @@ from engine.signal_engine import MIN_BARS, evaluate
 
 @dataclass
 class BacktestConfig:
-    initial_cash: float = 100_000.0
+    initial_cash: float = 1_000_000.0
+
     commission_rate: float = 0.001
-    position_size_pct: float = 0.95
+    slippage_rate: float = 0.0005
+
+    position_size_pct: float = 0.25
+    risk_per_trade_pct: float = 0.005
 
     entry_decisions: tuple[str, ...] = ("NET AL", "AL ADAY")
     minimum_entry_score: float = 62.0
@@ -24,6 +28,9 @@ class BacktestConfig:
 
     use_next_bar_open: bool = True
     allow_reentry_same_bar: bool = False
+
+    close_at_day_end: bool = False
+    target1_exit_pct: float = 0.50
 
 
 def _empty_result(error: str) -> dict[str, Any]:
@@ -116,7 +123,8 @@ def run_backtest(
     entry_reason = ""
     entry_score = 0.0
     stop_price = 0.0
-    target_price = 0.0
+    target1_price = 0.0
+    target2_price = 0.0
     entry_index = None
     total_commission = 0.0
 
@@ -188,7 +196,8 @@ def run_backtest(
             entry_reason = str(signal.get("reason", ""))
             entry_score = float(signal.get("score", 0))
             stop_price = float(signal.get("stop", 0))
-            target_price = float(signal.get("target", 0))
+            target1_price = float(signal.get("target1", 0))
+            target2_price = float(signal.get("target2", 0))
             entry_index = next_index
             total_commission += buy_commission
 
@@ -219,7 +228,7 @@ def run_backtest(
         exit_price = None
 
         stop_hit = stop_price > 0 and bar_low <= stop_price
-        target_hit = target_price > 0 and bar_high >= target_price
+        target_hit = target2_price > 0 and bar_high >= target2_price
 
         if stop_hit and target_hit:
             # Mum içi sıra bilinmediği için ihtiyatlı varsayım.
@@ -230,7 +239,7 @@ def run_backtest(
             exit_price = stop_price
         elif target_hit:
             exit_reason = "HEDEF"
-            exit_price = target_price
+            exit_price = target2_price
         else:
             holding_bars = (
                 next_index - entry_index
@@ -295,7 +304,8 @@ def run_backtest(
                 "Skor": float(signal.get("score", 0)),
                 "Neden": exit_reason,
                 "Stop": stop_price,
-                "Hedef": target_price,
+                "Hedef 1": target1_price,
+                "Hedef 2": target2_price,
                 "Net K/Z": net_pnl,
                 "K/Z %": pnl_pct,
                 "Tutulan Mum": holding_bars,
@@ -308,7 +318,8 @@ def run_backtest(
         entry_reason = ""
         entry_score = 0.0
         stop_price = 0.0
-        target_price = 0.0
+        target1_price = 0.0
+        target2_price = 0.0
         entry_index = None
 
         if not config.allow_reentry_same_bar:
