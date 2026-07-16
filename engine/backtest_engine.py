@@ -81,6 +81,22 @@ def _calculate_sharpe(equity: pd.DataFrame) -> float:
     return float((returns.mean() / returns.std(ddof=0)) * np.sqrt(252))
 
 
+
+def _add_drawdown_columns(equity: pd.DataFrame) -> pd.DataFrame:
+    if equity.empty or "Bakiye" not in equity.columns:
+        return equity
+
+    result = equity.copy()
+    result["Zirve"] = result["Bakiye"].cummax()
+    result["Drawdown"] = result["Bakiye"] - result["Zirve"]
+    result["Drawdown %"] = np.where(
+        result["Zirve"] > 0,
+        result["Drawdown"] / result["Zirve"] * 100,
+        0.0,
+    )
+    return result
+
+
 def run_backtest(
     frame: pd.DataFrame,
     config: BacktestConfig | None = None,
@@ -211,7 +227,8 @@ def run_backtest(
                     "Skor": entry_score,
                     "Neden": entry_reason,
                     "Stop": stop_price,
-                    "Hedef": target_price,
+                    "Hedef 1": target1_price,
+                    "Hedef 2": target2_price,
                     "Net K/Z": np.nan,
                     "K/Z %": np.nan,
                     "Tutulan Mum": 0,
@@ -359,7 +376,8 @@ def run_backtest(
                 "Skor": np.nan,
                 "Neden": "TEST SONU",
                 "Stop": stop_price,
-                "Hedef": target_price,
+                "Hedef 1": target1_price,
+                "Hedef 2": target2_price,
                 "Net K/Z": net_pnl,
                 "K/Z %": pnl_pct,
                 "Tutulan Mum": holding_bars,
@@ -392,6 +410,8 @@ def run_backtest(
                 }
             ]
         )
+
+    equity = _add_drawdown_columns(equity)
 
     sales = (
         trades[trades["İşlem"] == "SAT"].copy()

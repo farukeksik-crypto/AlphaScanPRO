@@ -7,6 +7,7 @@ from database.db import Database
 from engine.cache_engine import CacheEngine
 from engine.data_engine import DataEngine
 from engine.diagnostics import run_diagnostics
+from ui.backtest_page import render_backtest
 from ui.dashboard_page import render_dashboard
 from ui.diagnostics_page import render_diagnostics
 from ui.relative_strength_page import render_relative_strength
@@ -36,6 +37,7 @@ page = st.sidebar.radio(
         "Göreceli Güç",
         "Kripto",
         "Emtia",
+        "Backtest PRO",
         "Sistem Durumu",
     ],
 )
@@ -56,6 +58,9 @@ elif page == "Kripto":
 elif page == "Emtia":
     render_commodity(data_engine)
 
+elif page == "Backtest PRO":
+    render_backtest(data_engine, watchlists)
+
 elif page == "Sistem Durumu":
     render_diagnostics(
         data_engine=data_engine,
@@ -66,5 +71,5 @@ elif page == "Sistem Durumu":
 
 
 st.caption(
-    "Sprint 3: Skor, risk ve BIST 100 göreceli güç analizi."
+    "Sprint 3: Skor, risk, göreceli güç ve geçmiş strateji testi."
 )

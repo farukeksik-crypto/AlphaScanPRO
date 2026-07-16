@@ -404,6 +404,71 @@ def render_backtest(data_engine, watchlists: dict):
         chart_data = chart_data.set_index("Tarih")
 
         st.line_chart(chart_data[["Bakiye"]])
+        st.subheader("Aylık Performans")
+
+        monthly_equity = (
+            chart_data["Bakiye"]
+            .resample("ME")
+            .last()
+            .dropna()
+        )
+
+        if not monthly_equity.empty:
+            monthly_returns = monthly_equity.pct_change()
+
+            initial_balance = float(
+                metrics.get("Başlangıç Bakiye", 0)
+            )
+
+            if initial_balance > 0:
+                monthly_returns.iloc[0] = (
+                    monthly_equity.iloc[0] / initial_balance - 1
+                )
+
+            month_names = {
+                1: "Ocak",
+                2: "Şubat",
+                3: "Mart",
+                4: "Nisan",
+                5: "Mayıs",
+                6: "Haziran",
+                7: "Temmuz",
+                8: "Ağustos",
+                9: "Eylül",
+                10: "Ekim",
+                11: "Kasım",
+                12: "Aralık",
+            }
+
+            monthly_frame = monthly_returns.reset_index()
+            monthly_frame.columns = ["Tarih", "Getiri"]
+            monthly_frame["Yıl"] = monthly_frame["Tarih"].dt.year
+            monthly_frame["Ay"] = (
+                monthly_frame["Tarih"]
+                .dt.month
+                .map(month_names)
+            )
+            monthly_frame["Getiri %"] = (
+                monthly_frame["Getiri"] * 100
+            )
+
+            st.bar_chart(
+                monthly_frame.set_index("Tarih")[["Getiri %"]]
+            )
+
+            st.dataframe(
+                monthly_frame[
+                    ["Yıl", "Ay", "Getiri %"]
+                ].style.format(
+                    {
+                        "Getiri %": "{:+.2f}%",
+                    }
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+        else:
+            st.info("Aylık performans için yeterli veri bulunamadı.")
 
     trades = result["trades"]
 
