@@ -1,0 +1,21 @@
+# Python tarafından üretilen dosyalar
+__pycache__/
+*.py[cod]
+
+# AlphaScan veri önbelleği
+cache/
+*.pkl
+
+# Sanal ortamlar
+.venv/
+venv/
+env/
+
+# Editör ayarları
+.vscode/
+.idea/
+
+# Sistem ve geçici dosyalar
+.DS_Store
+Thumbs.db
+*.log

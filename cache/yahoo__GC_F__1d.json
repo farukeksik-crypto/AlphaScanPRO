@@ -1,8 +1,0 @@
-{
-  "provider": "yahoo",
-  "symbol": "GC=F",
-  "interval": "1d",
-  "rows": 504,
-  "first_bar": "2024-07-15 00:00:00",
-  "last_bar": "2026-07-15 00:00:00"
-}

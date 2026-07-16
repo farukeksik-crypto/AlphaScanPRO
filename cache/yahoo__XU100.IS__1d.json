@@ -1,8 +1,0 @@
-{
-  "provider": "yahoo",
-  "symbol": "XU100.IS",
-  "interval": "1d",
-  "rows": 59,
-  "first_bar": "2026-04-15 00:00:00",
-  "last_bar": "2026-07-14 00:00:00"
-}
