@@ -1,0 +1,37 @@
+AlphaScan PRO Sprint 5 — Background Platform
+
+GÜVENLİ KURULUM
+
+1. Mevcut klasörü yedekleyin:
+   C:\Users\Faruk\AlphaScanPRO_Sprint2
+   klasörünün adını:
+   AlphaScanPRO_Sprint2_Yedek
+   olarak değiştirin.
+
+2. Bu ZIP'i C:\Users\Faruk içine ayıklayın.
+
+3. Ayıklanan klasörün adını:
+   AlphaScanPRO_Sprint2
+   yapın.
+
+4. PowerShell:
+   cd C:\Users\Faruk\AlphaScanPRO_Sprint2
+   py -3.13 -m py_compile background_worker.py
+   py -3.13 -m streamlit run app.py
+
+5. Arka plan worker testi için ikinci bir PowerShell açın:
+   cd C:\Users\Faruk\AlphaScanPRO_Sprint2
+   py -3.13 background_worker.py
+
+6. Testi Ctrl+C ile durdurun.
+
+7. Test başarılıysa Windows başlangıcına kurun:
+   powershell -ExecutionPolicy Bypass -File .\scripts\install_background_task.ps1
+
+ÖNEMLİ
+- Streamlit kapalıyken worker çalışmaya devam eder.
+- Bilgisayar kapalı veya uyku modundaysa yerel worker çalışmaz.
+- Gerçek emir göndermez; sanal robot altyapısını kullanır.
+- İlk sürümde üç piyasa aynı sanal bakiyeyi paylaşır.
+- Eski veritabanını kullanmak isterseniz yedekteki
+  database\alphascan.db dosyasını yeni klasöre kopyalayabilirsiniz.

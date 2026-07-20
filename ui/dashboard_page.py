@@ -6,6 +6,10 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
+from database.background_repository import dashboard_snapshot
+from engine.robot_engine import RobotConfig, RobotEngine
+from engine.market_accounts import MARKET_ACCOUNTS
+
 
 ISTANBUL_TZ = ZoneInfo("Europe/Istanbul")
 STARTING_BALANCE = 1_000_000.0
@@ -101,33 +105,26 @@ def _get_last_scan_time() -> str:
     return "Henüz tarama yok"
 
 
-def render_dashboard(cache_engine):
+def render_dashboard(cache_engine, database):
     now = datetime.now(ISTANBUL_TZ)
     market_status, market_detail = _market_status(now)
 
     cache_status = cache_engine.status()
-    scan_summary = _get_scan_summary()
+    db_snapshot = dashboard_snapshot(database)
+    scan_summary = db_snapshot["summary"]
     relative_summary = st.session_state.get("relative_summary", {})
 
-    portfolio_balance = st.session_state.get(
-        "paper_portfolio_balance",
-        STARTING_BALANCE,
-    )
-
-    daily_profit = st.session_state.get(
-        "paper_daily_profit",
-        0.0,
-    )
-
-    open_positions = st.session_state.get(
-        "paper_open_positions",
-        [],
-    )
-
-    robot_status = st.session_state.get(
-        "paper_robot_status",
-        "Beklemede",
-    )
+    account_states = {}
+    for market, account in MARKET_ACCOUNTS.items():
+        engine = RobotEngine(database, RobotConfig(
+            starting_balance=account["starting_balance"], market=market,
+            account_id=account["account_id"], currency=account["currency"],
+        ))
+        account_states[market] = {
+            "state": engine.get_state(),
+            "positions": engine.get_open_positions(),
+            "label": account["label"],
+        }
 
     st.title("🏠 AlphaScan PRO Dashboard")
 
@@ -162,35 +159,24 @@ def render_dashboard(cache_engine):
 
     st.divider()
 
-    # Sanal portföy
-    st.subheader("💰 Sanal İşlem Robotu")
-
-    portfolio_col, profit_col, position_col, robot_col = st.columns(4)
-
-    portfolio_col.metric(
-        "Sanal bakiye",
-        f"{portfolio_balance:,.2f} TL",
-    )
-
-    profit_col.metric(
-        "Bugünkü sonuç",
-        f"{daily_profit:,.2f} TL",
-        f"%{(daily_profit / STARTING_BALANCE) * 100:+.2f}",
-    )
-
-    position_col.metric(
-        "Açık pozisyon",
-        len(open_positions),
-    )
-
-    robot_col.metric(
-        "Robot",
-        robot_status,
-    )
+    # Ayrı sanal portföyler
+    st.subheader("💰 Sanal İşlem Hesapları")
+    account_cols = st.columns(3)
+    for col, market in zip(account_cols, ["BIST", "KRIPTO", "EMTIA"]):
+        info = account_states[market]
+        state = info["state"]
+        currency = state["currency"]
+        suffix = {"TRY": "TL", "USDT": "USDT", "USD": "USD"}.get(currency, currency)
+        status = "Aktif" if state["enabled"] else "Kapalı"
+        with col:
+            st.markdown(f"### {info['label']}")
+            st.metric("Nakit bakiye", f"{state['balance']:,.2f} {suffix}")
+            st.metric("Bugünkü K/Z", f"{state['daily_profit']:,.2f} {suffix}")
+            st.caption(f"Robot: {status} · Açık pozisyon: {len(info['positions'])}")
 
     st.info(
-        "Robot şu anda gerçek emir göndermez. "
-        "1.000.000 TL sanal bakiyeyle test edilmek üzere hazırlanacaktır."
+        "BIST, Kripto ve Emtia sanal hesapları birbirinden bağımsızdır. "
+        "Bir piyasadaki zarar veya pozisyon limiti diğer hesabı etkilemez."
     )
 
     st.divider()
@@ -220,7 +206,7 @@ def render_dashboard(cache_engine):
         scan_summary["BEKLE"],
     )
 
-    st.caption(f"Son tarama: {_get_last_scan_time()}")
+    st.caption(f"Son arka plan taraması: {db_snapshot["last_scan"]}")
 
     st.divider()
 
@@ -267,7 +253,10 @@ def render_dashboard(cache_engine):
     # En güçlü fırsatlar
     st.subheader("🔥 Günün En Güçlü Fırsatları")
 
-    top_opportunities = _get_top_opportunities(limit=10)
+    top_opportunities = pd.DataFrame(db_snapshot["top"])
+    if not top_opportunities.empty:
+        desired = ["Kod", "Hisse", "Karar", "Puan", "Güven", "Risk", "Fiyat", "Stop", "Hedef 1", "Hedef 2"]
+        top_opportunities = top_opportunities[[c for c in desired if c in top_opportunities.columns]]
 
     if top_opportunities.empty:
         st.info(

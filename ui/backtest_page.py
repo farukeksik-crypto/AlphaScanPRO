@@ -5,21 +5,15 @@ from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
+from config.market_universes import (
+    BIST_UNIVERSES,
+    get_bist_universe,
+    get_crypto_groups,
+    get_crypto_pairs,
+)
+from engine.backtest_analyzer import analyze_backtest
 from engine.backtest_engine import BacktestConfig, run_backtest
 
-
-CRYPTO_SYMBOLS = {
-    "BTC": "BTC/USDT",
-    "ETH": "ETH/USDT",
-    "SOL": "SOL/USDT",
-    "BNB": "BNB/USDT",
-    "LINK": "LINK/USDT",
-    "XRP": "XRP/USDT",
-    "ADA": "ADA/USDT",
-    "AVAX": "AVAX/USDT",
-    "DOGE": "DOGE/USDT",
-    "DOT": "DOT/USDT",
-}
 
 COMMODITY_SYMBOLS = {
     "Altın": "GC=F",
@@ -37,18 +31,17 @@ def _load_market_data(
     market: str,
     selected_label: str,
     interval: str,
+    selected_universe: str | None = None,
+    selected_crypto_group: str | None = None,
 ) -> tuple[pd.DataFrame, str]:
-    if market == "Arındırma 0":
-        symbol = (
-            selected_label
-            if selected_label.endswith(".IS")
-            else f"{selected_label}.IS"
-        )
+    if market == "BIST":
+        symbol = selected_label if selected_label.endswith(".IS") else f"{selected_label}.IS"
         period = "10y" if interval == "1d" else "60d"
         return data_engine.get_yahoo(symbol, period, interval), selected_label
 
     if market == "Kripto":
-        symbol = CRYPTO_SYMBOLS[selected_label]
+        pairs = get_crypto_pairs(selected_crypto_group)
+        symbol = pairs[selected_label]
         return data_engine.get_binance(symbol, interval, 1000), selected_label
 
     symbol = COMMODITY_SYMBOLS[selected_label]
@@ -68,9 +61,165 @@ def _metric_value(metrics: dict, key: str, suffix: str = "") -> str:
     return f"{float(value):,.2f}{suffix}"
 
 
-def render_backtest(data_engine, watchlists: dict):
-    st.title("📉 Backtest PRO v2")
+def _build_bist_map(
+    watchlists: dict,
+    selected_universe: str,
+) -> dict[str, str]:
+    if selected_universe == "Arındırma 0":
+        items = watchlists.get("arindirma_0", [])
+    else:
+        items = get_bist_universe(selected_universe)
 
+    result: dict[str, str] = {}
+
+    for item in items:
+        code = str(item.get("kod", "")).strip()
+        if not code:
+            continue
+        result[code] = str(item.get("ad", code))
+
+    return result
+
+
+def _render_intelligent_analysis(result: dict):
+    analysis = analyze_backtest(result)
+
+    st.divider()
+    st.subheader("🧠 Backtest Akıllı Analiz")
+
+    health_score = float(analysis.get("health_score", 0))
+
+    score_col, status_col = st.columns(2)
+
+    score_col.metric(
+        "Strateji Sağlık Puanı",
+        f"{health_score:.1f} / 100",
+    )
+
+    if health_score >= 80:
+        health_status = "Güçlü"
+    elif health_score >= 65:
+        health_status = "Geliştirilebilir"
+    elif health_score >= 50:
+        health_status = "Zayıf"
+    else:
+        health_status = "Riskli"
+
+    status_col.metric(
+        "Strateji Durumu",
+        health_status,
+    )
+
+    summary = analysis.get("summary", {})
+
+    s1, s2, s3 = st.columns(3)
+
+    s1.metric(
+        "Net Kâr",
+        f"{float(summary.get('net_profit', 0)):,.2f}",
+    )
+
+    s2.metric(
+        "Komisyon / Brüt Kâr",
+        f"%{float(summary.get('commission_share_pct', 0)):.2f}",
+    )
+
+    s3.metric(
+        "İlk 3 İşlemin Kâr Payı",
+        f"%{float(summary.get('top_3_profit_share_pct', 0)):.2f}",
+    )
+
+    strengths = analysis.get("strengths", [])
+    warnings = analysis.get("warnings", [])
+    recommendations = analysis.get("recommendations", [])
+
+    if strengths:
+        st.success(
+            "**Güçlü yönler**\n\n"
+            + "\n".join(f"- {item}" for item in strengths)
+        )
+
+    if warnings:
+        st.warning(
+            "**Uyarılar**\n\n"
+            + "\n".join(f"- {item}" for item in warnings)
+        )
+
+    if recommendations:
+        st.info(
+            "**Test edilmesi önerilen fikirler**\n\n"
+            + "\n".join(f"- {item}" for item in recommendations)
+            + "\n\nBu öneriler ayrı backtestlerle doğrulanmalıdır."
+        )
+
+    exit_analysis = analysis.get(
+        "exit_reason_analysis",
+        pd.DataFrame(),
+    )
+
+    if not exit_analysis.empty:
+        st.subheader("Çıkış Nedeni Analizi")
+
+        st.dataframe(
+            exit_analysis.style.format(
+                {
+                    "Toplam_KZ": "{:+,.2f}",
+                    "Ortalama_KZ": "{:+,.2f}",
+                    "Başarı_Oranı": "{:.2f}%",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
+    entry_score_analysis = analysis.get(
+        "entry_score_analysis",
+        analysis.get(
+            "score_band_analysis",
+            pd.DataFrame(),
+        ),
+    )
+
+    if not entry_score_analysis.empty:
+        st.subheader("Giriş Skoru Analizi")
+
+        st.dataframe(
+            entry_score_analysis.style.format(
+                {
+                    "Toplam_KZ": "{:+,.2f}",
+                    "Ortalama_KZ": "{:+,.2f}",
+                    "Medyan_KZ": "{:+,.2f}",
+                    "Başarı_Oranı": "{:.2f}%",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
+    exit_score_analysis = analysis.get(
+        "exit_score_analysis",
+        pd.DataFrame(),
+    )
+
+    if not exit_score_analysis.empty:
+        st.subheader("Çıkış Skoru Analizi")
+
+        st.dataframe(
+            exit_score_analysis.style.format(
+                {
+                    "Toplam_KZ": "{:+,.2f}",
+                    "Ortalama_KZ": "{:+,.2f}",
+                    "Medyan_KZ": "{:+,.2f}",
+                    "Başarı_Oranı": "{:.2f}%",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
+
+def render_backtest(data_engine, watchlists: dict):
+    st.title("📉 Backtest PRO v3")
     st.caption(
         "Sinyal kapanmış mumda hesaplanır. İşlem varsayılan olarak "
         "sonraki mum açılışında yapılır."
@@ -78,20 +227,31 @@ def render_backtest(data_engine, watchlists: dict):
 
     market = st.radio(
         "Piyasa",
-        ["Arındırma 0", "Kripto", "Emtia"],
+        ["BIST", "Kripto", "Emtia"],
         horizontal=True,
     )
 
-    if market == "Arındırma 0":
-        items = watchlists.get("arindirma_0", [])
+    selected_universe = None
+    selected_crypto_group = None
 
-        stock_map = {
-            item["kod"]: item.get("ad", item["kod"])
-            for item in items
-        }
+    if market == "BIST":
+        universe_options = [
+            "Arındırma 0",
+            *BIST_UNIVERSES.keys(),
+        ]
+
+        selected_universe = st.selectbox(
+            "BIST evreni",
+            universe_options,
+        )
+
+        stock_map = _build_bist_map(
+            watchlists,
+            selected_universe,
+        )
 
         if not stock_map:
-            st.warning("Arındırma 0 listesi boş.")
+            st.warning(f"{selected_universe} listesi boş.")
             return
 
         selected_label = st.selectbox(
@@ -111,9 +271,20 @@ def render_backtest(data_engine, watchlists: dict):
         )
 
     elif market == "Kripto":
+        selected_crypto_group = st.selectbox(
+            "Kripto grubu",
+            get_crypto_groups(),
+        )
+
+        crypto_pairs = get_crypto_pairs(selected_crypto_group)
+
+        if not crypto_pairs:
+            st.warning("Seçilen kripto grubunda varlık bulunamadı.")
+            return
+
         selected_label = st.selectbox(
             "Coin",
-            list(CRYPTO_SYMBOLS),
+            list(crypto_pairs),
         )
 
         interval = st.selectbox(
@@ -276,6 +447,8 @@ def render_backtest(data_engine, watchlists: dict):
                     market=market,
                     selected_label=selected_label,
                     interval=interval,
+                    selected_universe=selected_universe,
+                    selected_crypto_group=selected_crypto_group,
                 )
 
                 if frame.empty:
@@ -314,9 +487,17 @@ def render_backtest(data_engine, watchlists: dict):
 
                 result = run_backtest(frame, config)
 
+            universe_text = (
+                selected_universe
+                if market == "BIST"
+                else selected_crypto_group
+                if market == "Kripto"
+                else "Emtia"
+            )
+
             st.session_state["backtest_result"] = result
             st.session_state["backtest_title"] = (
-                f"{display_name} — {interval} — "
+                f"{universe_text} — {display_name} — {interval} — "
                 f"{start_date.strftime('%d.%m.%Y')} / "
                 f"{end_date.strftime('%d.%m.%Y')}"
             )
@@ -346,22 +527,18 @@ def render_backtest(data_engine, watchlists: dict):
         "Toplam Getiri",
         _metric_value(metrics, "Toplam Getiri %", "%"),
     )
-
     c2.metric(
         "Başarı Oranı",
         _metric_value(metrics, "Başarı Oranı %", "%"),
     )
-
     c3.metric(
         "Kâr Faktörü",
         _metric_value(metrics, "Kâr Faktörü"),
     )
-
     c4.metric(
         "Maksimum Düşüş",
         _metric_value(metrics, "Maksimum Düşüş %", "%"),
     )
-
     c5.metric(
         "Toplam İşlem",
         _metric_value(metrics, "Toplam İşlem"),
@@ -373,22 +550,18 @@ def render_backtest(data_engine, watchlists: dict):
         "Son Bakiye",
         _metric_value(metrics, "Son Bakiye"),
     )
-
     c2.metric(
         "Al-Tut",
         _metric_value(metrics, "Al-Tut Getirisi %", "%"),
     )
-
     c3.metric(
         "Beklenen Değer",
         _metric_value(metrics, "Beklenen Değer"),
     )
-
     c4.metric(
         "Sharpe",
         _metric_value(metrics, "Sharpe"),
     )
-
     c5.metric(
         "Toplam Komisyon",
         _metric_value(metrics, "Toplam Komisyon"),
@@ -397,13 +570,17 @@ def render_backtest(data_engine, watchlists: dict):
     equity = result["equity"]
 
     if not equity.empty:
-        st.subheader("Portföy Bakiye Eğrisi")
-
         chart_data = equity.copy()
         chart_data["Tarih"] = pd.to_datetime(chart_data["Tarih"])
         chart_data = chart_data.set_index("Tarih")
 
+        st.subheader("Portföy Bakiye Eğrisi")
         st.line_chart(chart_data[["Bakiye"]])
+
+        if "Drawdown %" in chart_data.columns:
+            st.subheader("Drawdown Eğrisi")
+            st.line_chart(chart_data[["Drawdown %"]])
+
         st.subheader("Aylık Performans")
 
         monthly_equity = (
@@ -460,15 +637,11 @@ def render_backtest(data_engine, watchlists: dict):
                 monthly_frame[
                     ["Yıl", "Ay", "Getiri %"]
                 ].style.format(
-                    {
-                        "Getiri %": "{:+.2f}%",
-                    }
+                    {"Getiri %": "{:+.2f}%"}
                 ),
                 width="stretch",
                 hide_index=True,
             )
-        else:
-            st.info("Aylık performans için yeterli veri bulunamadı.")
 
     trades = result["trades"]
 
@@ -479,6 +652,7 @@ def render_backtest(data_engine, watchlists: dict):
             "Seçilen ayarlarda işlem oluşmadı. "
             "Minimum giriş puanını azaltmayı deneyebilirsin."
         )
+        _render_intelligent_analysis(result)
         return
 
     display_trades = trades.copy()
@@ -516,6 +690,8 @@ def render_backtest(data_engine, watchlists: dict):
         file_name="alphascan_backtest_islemleri.csv",
         mime="text/csv",
     )
+
+    _render_intelligent_analysis(result)
 
     with st.expander("Tüm performans ölçümleri"):
         metric_frame = pd.DataFrame(

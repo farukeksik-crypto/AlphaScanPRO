@@ -1,0 +1,73 @@
+# AlphaScan PRO
+# Teknik puanlama ayarları
+# Bilanço ve katılım verileri bu puanı etkilemez.
+
+technical_score:
+  maximum_score: 100
+
+  trend:
+    ema50_above_ema200:
+      enabled: true
+      points: 24
+      description: "EMA50 > EMA200"
+
+    price_above_ema50:
+      enabled: true
+      points: 14
+      description: "Fiyat EMA50 üstünde"
+
+    ema20_above_ema50:
+      enabled: true
+      points: 10
+      description: "Kısa trend güçlü"
+
+  momentum:
+    rsi_optimal:
+      enabled: true
+      points: 16
+      minimum: 42
+      maximum: 65
+      description: "RSI uygun"
+
+    macd_positive:
+      enabled: true
+      points: 14
+      description: "MACD pozitif"
+
+  trend_strength:
+    adx_confirmation:
+      enabled: true
+      points: 12
+      minimum_adx: 18
+      require_positive_di: true
+      description: "ADX yön onayı"
+
+  volume:
+    volume_confirmation:
+      enabled: true
+      points: 10
+      minimum_ratio: 0.85
+      description: "Hacim yeterli"
+
+decision_levels:
+  net_al:
+    minimum_score: 80
+    label: "NET AL"
+
+  al_aday:
+    minimum_score: 65
+    label: "AL ADAY"
+
+  izle:
+    minimum_score: 50
+    label: "İZLE"
+
+  bekle:
+    minimum_score: 0
+    label: "BEKLE"
+
+independent_modules:
+  financial_score_affects_technical_score: false
+  participation_status_affects_technical_score: false
+  purification_rate_affects_technical_score: false
+  news_score_affects_technical_score: false

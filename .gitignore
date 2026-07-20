@@ -19,3 +19,16 @@ env/
 .DS_Store
 Thumbs.db
 *.log
+# AlphaScan generated files
+cache/
+logs/
+runtime/
+backups/
+backup_*/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.db-journal
+*.db-wal
+*.db-shm

@@ -1,3 +1,17 @@
+# AlphaScan PRO Değişiklik Günlüğü
+
+## Sprint 5 — Background Platform (18.07.2026)
+
+- Streamlit'ten bağımsız `background_worker.py` eklendi.
+- BIST, kripto ve emtia için ayrı zamanlama altyapısı eklendi.
+- Kripto 7/24; BIST piyasa saati kontrollü; emtia periyodik çalışır.
+- Arka plan tarama sonuçları ve çalışma geçmişi SQLite'a kaydedilir.
+- Sanal robot, arka plan tarama sonuçlarıyla bağlantı kurar.
+- Aynı worker'ın iki kez açılmasını engelleyen kilit sistemi eklendi.
+- Dönen log dosyaları ve Windows Görev Zamanlayıcı betikleri eklendi.
+- Streamlit'e `Arka Plan Platformu` izleme sayfası eklendi.
+- Bu sürümde gerçek emir gönderimi yoktur.
+
 # AlphaScan PRO - Değişiklik Günlüğü
 
 Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazında kayıt altına alınır.

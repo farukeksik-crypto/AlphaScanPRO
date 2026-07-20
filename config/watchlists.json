@@ -69,8 +69,8 @@
       "ad": "İzmir Fırça"
     },
     {
-      "kod": "IZYAT",
-      "ad": "İz Yatırım"
+      "kod": "IZINV",
+      "ad": "İz Yatırım Holding"
     },
     {
       "kod": "KRGYO",
@@ -85,12 +85,8 @@
       "ad": "Kuzugrup GYO"
     },
     {
-      "kod": "LUXGY",
+      "kod": "LUKSK",
       "ad": "Lüks Kadife"
-    },
-    {
-      "kod": "MTRPL",
-      "ad": "Mete Plastik"
     },
     {
       "kod": "MPARK",

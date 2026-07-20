@@ -1,0 +1,11 @@
+AlphaScan PRO Kurtarma - Dogru Ana Surum
+
+Temel: Sprint 6.3 Stabilizasyon tam proje
+Uzerine eklendi:
+- v3 Sprint 1 coklu BIST/Kripto/Emtia hesaplari
+- Paranin Yonu sayfasi
+- KAP finansal veri hotfixi
+- Windows uyumlu arka plan worker
+- En yeni mevcut SQLite veritabani ve cache
+
+Eski klasoru silmeden once bu surumu test edin.

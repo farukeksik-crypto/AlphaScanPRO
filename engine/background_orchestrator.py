@@ -1,0 +1,234 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+from config.market_universes import get_crypto_pairs
+from engine.analysis_engine import analyze_signal_payload
+from engine.robot_engine import RobotConfig, RobotEngine
+from engine.market_accounts import account_for_market, normalize_market
+from engine.notification_manager import NotificationManager
+from engine.scanner import scan_commodities, scan_crypto, scan_yahoo_items
+
+
+class BackgroundOrchestrator:
+    def __init__(self, database, data_engine, watchlists: dict, settings, logger):
+        self.database = database
+        self.data_engine = data_engine
+        self.watchlists = watchlists
+        self.settings = settings
+        self.logger = logger
+        self.notifier = NotificationManager(database, settings, logger)
+        self.robot = self._robot_for_market("BIST")
+
+    def _robot_for_market(self, market: str) -> RobotEngine:
+        normalized = normalize_market(market)
+        account = account_for_market(normalized)
+        return RobotEngine(
+            self.database,
+            RobotConfig(
+                starting_balance=float(account["starting_balance"]),
+                minimum_score=80.0,
+                minimum_probability=60.0,
+                allowed_decisions=("NET AL",),
+                strategy_profile=f"Background {normalized} V1",
+                market=normalized,
+                account_id=account["account_id"],
+                currency=account["currency"],
+            ),
+        )
+
+    @staticmethod
+    def _now() -> str:
+        return datetime.now().isoformat(timespec="seconds")
+
+    def _start_run(self, market: str, universe: str) -> int:
+        with self.database.connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO background_runs(market, universe, started_at, status)
+                VALUES (?, ?, ?, 'RUNNING')
+                """,
+                (market, universe, self._now()),
+            )
+            connection.commit()
+            return int(cursor.lastrowid)
+
+    def _finish_run(self, run_id: int, *, status: str, scanned: int = 0,
+                    failures: int = 0, actions: int = 0, error: str = "") -> None:
+        with self.database.connect() as connection:
+            connection.execute(
+                """
+                UPDATE background_runs
+                SET finished_at = ?, status = ?, scanned_count = ?,
+                    failure_count = ?, action_count = ?, error_message = ?
+                WHERE id = ?
+                """,
+                (self._now(), status, scanned, failures, actions, error, run_id),
+            )
+            connection.commit()
+
+    @staticmethod
+    def _normalize(rows: list[dict[str, Any]], market: str, universe: str) -> list[dict[str, Any]]:
+        normalized = []
+        for row in rows:
+            item = dict(row)
+            symbol = str(item.get("Kod") or item.get("Coin") or item.get("Emtia") or "").strip()
+            name = str(item.get("Hisse") or item.get("Coin") or item.get("Emtia") or symbol)
+            analysis = analyze_signal_payload(item)
+            item.update({
+                "Kod": symbol,
+                "Ad": name,
+                "Piyasa": market,
+                "Evren": universe,
+                "Güven": analysis["confidence"],
+                "Güven Durumu": analysis["confidence_label"],
+                "Güven Yıldızı": analysis["confidence_stars"],
+                "Risk": analysis["risk_level"],
+                "Başarı Göstergesi %": analysis["probability"],
+                "AI Analizi": analysis["summary"],
+            })
+            normalized.append(item)
+        return normalized
+
+    def _save_results(self, run_id: int, rows: list[dict[str, Any]], market: str, universe: str) -> None:
+        created_at = self._now()
+        limited = rows[: self.settings.max_saved_rows_per_run]
+        with self.database.connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO background_scan_results(
+                    run_id, market, universe, symbol, name, decision, score,
+                    price, stop_price, target1, target2, confidence,
+                    confidence_label, risk_level, probability, reason, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [(
+                    run_id, market, universe, row.get("Kod", ""), row.get("Ad", ""),
+                    row.get("Karar", ""), float(row.get("Puan", 0) or 0),
+                    float(row.get("Fiyat", 0) or 0), float(row.get("Stop", 0) or 0),
+                    float(row.get("Hedef 1", 0) or 0), float(row.get("Hedef 2", 0) or 0),
+                    float(row.get("Güven", 0) or 0), row.get("Güven Durumu", ""),
+                    row.get("Risk", ""), float(row.get("Başarı Göstergesi %", 0) or 0),
+                    row.get("AI Analizi", row.get("Neden", "")), created_at,
+                ) for row in limited],
+            )
+            connection.commit()
+
+    def _candidate_diagnostics(self, rows: list[dict[str, Any]], market: str = "BIST", limit: int = 8) -> list[str]:
+        diagnostics: list[str] = []
+        ranked = sorted(rows, key=lambda row: float(row.get("Puan", 0) or 0), reverse=True)
+        robot = self._robot_for_market(market)
+        state = robot.get_state()
+        for row in ranked[:limit]:
+            symbol = str(row.get("Kod", "?"))
+            decision = str(row.get("Karar", ""))
+            score = float(row.get("Puan", 0) or 0)
+            probability = float(row.get("Başarı Göstergesi %", 0) or 0)
+            risk = str(row.get("Risk", ""))
+            reasons: list[str] = []
+            if not state["enabled"]:
+                reasons.append("robot kapalı")
+            if decision not in robot.config.allowed_decisions:
+                reasons.append(f"karar={decision or 'yok'}")
+            if score < robot.config.minimum_score:
+                reasons.append(f"puan {score:.0f} < {robot.config.minimum_score:.0f}")
+            if probability < robot.config.minimum_probability:
+                reasons.append(f"olasılık %{probability:.0f} < %{robot.config.minimum_probability:.0f}")
+            if risk == "Yüksek":
+                reasons.append("risk yüksek")
+            if robot.has_open_position(symbol):
+                reasons.append("açık pozisyon var")
+            if not reasons:
+                reasons.append("işleme uygun aday")
+            diagnostics.append(f"{symbol}: " + ", ".join(reasons))
+        return diagnostics
+
+    def _process_robot(self, rows: list[dict[str, Any]], market: str, universe: str, enabled: bool):
+        robot = self._robot_for_market(market)
+        latest_prices = {
+            str(row.get("Kod", "")): float(row.get("Fiyat", 0) or 0)
+            for row in rows if row.get("Kod") and float(row.get("Fiyat", 0) or 0) > 0
+        }
+        actions = robot.process_open_positions(latest_prices)
+        if enabled:
+            actions.extend(robot.process_scanner_results(
+                rows, market=normalize_market(market), universe=universe,
+                strategy_profile=f"Background {normalize_market(market)} V1"
+            ))
+        return actions
+
+    def _notify_actions(self, market: str, universe: str, actions: list[dict[str, Any]]) -> None:
+        successful = [action for action in actions if action.get("ok")]
+        for action in successful:
+            symbol = str(action.get("symbol", ""))
+            if "profit" in action:
+                profit = float(action.get("profit", 0) or 0)
+                self.notifier.send(
+                    "ROBOT_SELL",
+                    f"AlphaScan satış: {symbol}",
+                    f"{market}/{universe} sanal pozisyon kapandı. Kâr/Zarar: {profit:,.2f}",
+                    action,
+                )
+            else:
+                score = float(action.get("score", 0) or 0)
+                price = float(action.get("price", 0) or 0)
+                self.notifier.send(
+                    "ROBOT_BUY",
+                    f"AlphaScan alım: {symbol}",
+                    f"{market}/{universe} sanal işlem açıldı. Fiyat: {price:.4f} | Puan: {score:.0f}",
+                    action,
+                )
+
+    def _execute(self, market: str, universe: str, scan_callable, robot_enabled: bool) -> dict[str, Any]:
+        run_id = self._start_run(market, universe)
+        try:
+            rows, failures = scan_callable()
+            rows = self._normalize(rows, market, universe)
+            self._save_results(run_id, rows, market, universe)
+            actions = self._process_robot(rows, market, universe, robot_enabled)
+            successful_actions = [action for action in actions if action.get("ok")]
+            self._finish_run(run_id, status="SUCCESS", scanned=len(rows), failures=len(failures), actions=len(successful_actions))
+            self.logger.info("%s/%s tamamlandı: %s sonuç, %s hata, %s robot aksiyonu", market, universe, len(rows), len(failures), len(successful_actions))
+            if successful_actions:
+                self._notify_actions(market, universe, successful_actions)
+            else:
+                diagnostics = self._candidate_diagnostics(rows, market)
+                self.logger.info("%s/%s işlem açılmama nedenleri: %s", market, universe, " | ".join(diagnostics))
+                if self.settings.notify_no_action:
+                    self.notifier.send(
+                        "NO_ACTION",
+                        f"AlphaScan: {market} tarandı",
+                        f"{len(rows)} sonuç incelendi, uygun işlem bulunamadı.",
+                        {"market": market, "universe": universe, "diagnostics": diagnostics},
+                    )
+            return {"ok": True, "rows": len(rows), "failures": len(failures), "actions": successful_actions}
+        except Exception as exc:
+            self._finish_run(run_id, status="ERROR", error=str(exc))
+            self.logger.exception("%s/%s taraması başarısız", market, universe)
+            return {"ok": False, "error": str(exc)}
+
+    def run_bist(self) -> dict[str, Any]:
+        items = self.watchlists.get(self.settings.bist_universe, [])
+        if not items and self.settings.bist_universe == "arindirma_0":
+            items = self.watchlists.get("arindirma_0", [])
+        return self._execute(
+            "BIST", self.settings.bist_universe,
+            lambda: scan_yahoo_items(self.data_engine, items, workers=4),
+            self.settings.bist.robot_enabled,
+        )
+
+    def run_crypto(self) -> dict[str, Any]:
+        pairs = get_crypto_pairs(self.settings.crypto_group)
+        return self._execute(
+            "KRIPTO", self.settings.crypto_group,
+            lambda: scan_crypto(self.data_engine, pairs),
+            self.settings.crypto.robot_enabled,
+        )
+
+    def run_commodity(self) -> dict[str, Any]:
+        return self._execute(
+            "EMTIA", "Ana Emtialar",
+            lambda: scan_commodities(self.data_engine, self.settings.commodities),
+            self.settings.commodity.robot_enabled,
+        )
