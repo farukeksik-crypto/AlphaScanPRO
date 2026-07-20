@@ -15,6 +15,8 @@ POSITION_COLUMNS = {
     "strategy_profile": "TEXT",
     "account_id": "TEXT",
     "currency": "TEXT",
+    "highest_price": "REAL",
+    "lowest_price": "REAL",
 }
 
 TRADE_HISTORY_COLUMNS = {
@@ -29,6 +31,19 @@ TRADE_HISTORY_COLUMNS = {
     "position_id": "INTEGER",
     "account_id": "TEXT",
     "currency": "TEXT",
+    "entry_price": "REAL",
+    "exit_price": "REAL",
+    "profit_pct": "REAL",
+    "holding_minutes": "REAL",
+    "mfe_pct": "REAL",
+    "mae_pct": "REAL",
+    "risk_pct": "REAL",
+    "reward_pct": "REAL",
+    "risk_reward": "REAL",
+    "entry_efficiency": "REAL",
+    "exit_efficiency": "REAL",
+    "trade_quality_score": "REAL",
+    "trade_grade": "TEXT",
 }
 
 ACCOUNT_DEFAULTS = (

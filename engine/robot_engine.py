@@ -6,6 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from engine.trade_intelligence import analyze_closed_trade
+
 
 @dataclass
 class RobotConfig:
@@ -132,7 +134,9 @@ class RobotEngine:
                 confidence_label,
                 decision,
                 entry_reason,
-                strategy_profile
+                strategy_profile,
+                highest_price,
+                lowest_price
             FROM positions
             WHERE status = 'OPEN' AND account_id = ?
             ORDER BY opened_at DESC
@@ -164,7 +168,20 @@ class RobotEngine:
                 decision,
                 reason,
                 strategy_profile,
-                position_id
+                position_id,
+                entry_price,
+                exit_price,
+                profit_pct,
+                holding_minutes,
+                mfe_pct,
+                mae_pct,
+                risk_pct,
+                reward_pct,
+                risk_reward,
+                entry_efficiency,
+                exit_efficiency,
+                trade_quality_score,
+                trade_grade
             FROM trade_history
             WHERE account_id = ?
             ORDER BY id DESC
@@ -292,10 +309,12 @@ class RobotEngine:
                     entry_reason,
                     strategy_profile,
                     account_id,
-                    currency
+                    currency,
+                    highest_price,
+                    lowest_price
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN',
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     symbol,
@@ -315,6 +334,8 @@ class RobotEngine:
                     profile,
                     self.account_id,
                     self.currency,
+                    price,
+                    price,
                 ),
             )
 
@@ -437,7 +458,12 @@ class RobotEngine:
                     confidence_label,
                     decision,
                     entry_reason,
-                    strategy_profile
+                    strategy_profile,
+                    opened_at,
+                    highest_price,
+                    lowest_price,
+                    stop_price,
+                    target2
                 FROM positions
                 WHERE id = ?
                   AND status = 'OPEN'
@@ -464,6 +490,11 @@ class RobotEngine:
                 decision,
                 entry_reason,
                 strategy_profile,
+                opened_at,
+                highest_price,
+                lowest_price,
+                stop_price,
+                target2,
             ) = row
 
             quantity = float(quantity)
@@ -507,6 +538,21 @@ class RobotEngine:
             closed_at = self._now()
             new_balance = balance + net_revenue
 
+            analytics = analyze_closed_trade(
+                entry_price=entry_price,
+                exit_price=exit_price,
+                quantity=quantity,
+                total_profit=profit,
+                opened_at=opened_at,
+                closed_at=closed_at,
+                highest_price=highest_price,
+                lowest_price=lowest_price,
+                stop_price=stop_price,
+                target_price=target2,
+                technical_score=float(technical_score or 0),
+                confidence_score=float(confidence_score or 0),
+            )
+
             connection.execute(
                 """
                 UPDATE positions
@@ -536,10 +582,24 @@ class RobotEngine:
                     strategy_profile,
                     position_id,
                     account_id,
-                    currency
+                    currency,
+                    entry_price,
+                    exit_price,
+                    profit_pct,
+                    holding_minutes,
+                    mfe_pct,
+                    mae_pct,
+                    risk_pct,
+                    reward_pct,
+                    risk_reward,
+                    entry_efficiency,
+                    exit_efficiency,
+                    trade_quality_score,
+                    trade_grade
                 )
                 VALUES (?, 'SELL', ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     symbol,
@@ -559,6 +619,19 @@ class RobotEngine:
                     position_id,
                     self.account_id,
                     self.currency,
+                    entry_price,
+                    exit_price,
+                    analytics.profit_pct,
+                    analytics.holding_minutes,
+                    analytics.mfe_pct,
+                    analytics.mae_pct,
+                    analytics.risk_pct,
+                    analytics.reward_pct,
+                    analytics.risk_reward,
+                    analytics.entry_efficiency,
+                    analytics.exit_efficiency,
+                    analytics.trade_quality_score,
+                    analytics.trade_grade,
                 ),
             )
 
@@ -631,6 +704,32 @@ class RobotEngine:
                 continue
 
             current_price = float(current_price)
+
+            with self.database.connect() as connection:
+                connection.execute(
+                    """
+                    UPDATE positions
+                    SET highest_price = CASE
+                            WHEN highest_price IS NULL OR ? > highest_price
+                            THEN ? ELSE highest_price END,
+                        lowest_price = CASE
+                            WHEN lowest_price IS NULL OR ? < lowest_price
+                            THEN ? ELSE lowest_price END
+                    WHERE id = ?
+                      AND status = 'OPEN'
+                      AND account_id = ?
+                    """,
+                    (
+                        current_price,
+                        current_price,
+                        current_price,
+                        current_price,
+                        int(position["id"]),
+                        self.account_id,
+                    ),
+                )
+                connection.commit()
+
             stop_price = float(
                 position["stop_price"] or 0
             )
