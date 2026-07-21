@@ -101,3 +101,11 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - Stop seviyesi hiçbir zaman geriye taşınmaz ve her pozisyonda yalnızca bir kez etkinleşir.
 - Aktivasyon nedeni, eski/yeni stop ve maliyet tamponu robot sistem olaylarına ve pozisyon metadata alanına kaydedilir.
 - Yeni hedefli testler: `tests/test_break_even_engine_10_12a.py`.
+
+## Sprint 10.12B — ATR Trailing Stop
+- ATR tabanlı dinamik takip eden stop eklendi.
+- ATR mesafesi minimum ve maksimum yüzde sınırlarıyla güvenli aralıkta tutuldu.
+- Trailing stop yalnızca break-even sonrasında devreye giriyor.
+- Stop hiçbir zaman geriye taşınmıyor.
+- ATR modu, mesafe, eski stop ve yeni stop günlükleniyor.
+

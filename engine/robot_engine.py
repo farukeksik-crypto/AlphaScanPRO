@@ -1655,8 +1655,13 @@ class RobotEngine:
                                 f"mod={trailing_mode} | "
                                 f"zirve={highest_price:.4f} | "
                                 f"atr={atr_value:.4f} | "
+                                f"çarpan={self.config.atr_trailing_multiplier:.2f} | "
+                                f"min=%{self.config.atr_trailing_min_pct * 100:.2f} | "
+                                f"max=%{self.config.atr_trailing_max_pct * 100:.2f} | "
                                 f"mesafe={trailing_distance:.4f} | "
-                                f"yeni_stop={trailing_stop:.4f}"
+                                f"eski_stop={stop_price:.4f} | "
+                                f"yeni_stop={trailing_stop:.4f} | "
+                                f"neden=stop yalnızca kâr yönünde sıkılaştırıldı"
                             ),
                         ),
                     )

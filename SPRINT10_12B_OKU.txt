@@ -1,0 +1,17 @@
+AlphaScan PRO — Sprint 10.12B ATR Trailing Stop
+
+1) Bu klasördeki şu öğeleri proje ana klasörüne kopyalayın:
+   apply_sprint10_12b.py
+   verify_sprint10_12b.py
+   payload
+   SPRINT10_12B_OKU.txt
+
+2) PowerShell:
+   cd C:\Users\Faruk\AlphaScanPRO_Git_Temiz
+   py -3.13 .\apply_sprint10_12b.py
+   py -3.13 .\verify_sprint10_12b.py
+
+3) Beklenen sonuç:
+   SPRINT 10.12B DOĞRULAMA BAŞARILI
+
+Not: Sprint 10.12A uygulanmış proje üzerine kurulmalıdır.

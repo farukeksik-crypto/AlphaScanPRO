@@ -31,6 +31,11 @@ class PositionManagementConfig:
     stop_loss_pct: float = 0.03
     take_profit_pct: float = 0.06
     trailing_stop_pct: float = 0.025
+    atr_trailing_enabled: bool = True
+    atr_trailing_multiplier: float = 2.0
+    atr_trailing_min_pct: float = 0.008
+    atr_trailing_max_pct: float = 0.040
+    trailing_requires_break_even: bool = True
     break_even_trigger_pct: float = 0.03
     break_even_offset_pct: float = 0.002
     commission_rate: float = 0.001
@@ -51,6 +56,9 @@ class PositionManagementConfig:
             "stop_loss_pct",
             "take_profit_pct",
             "trailing_stop_pct",
+            "atr_trailing_multiplier",
+            "atr_trailing_min_pct",
+            "atr_trailing_max_pct",
             "break_even_trigger_pct",
             "break_even_offset_pct",
             "commission_rate",
@@ -62,6 +70,8 @@ class PositionManagementConfig:
             value = getattr(self, name)
             if value < 0:
                 raise ValueError(f"{name} negatif olamaz.")
+        if self.atr_trailing_min_pct > self.atr_trailing_max_pct:
+            raise ValueError("atr_trailing_min_pct, atr_trailing_max_pct değerinden büyük olamaz.")
         if not 0 < self.partial_close_ratio <= 1:
             raise ValueError("partial_close_ratio 0-1 arasında olmalıdır.")
 
@@ -266,28 +276,56 @@ class PositionManagementEngine:
         self,
         position: ManagedPosition,
         price: float,
+        atr: Optional[float] = None,
     ) -> None:
         if not self.config.enable_trailing_stop:
             return
+        if self.config.trailing_requires_break_even and not position.break_even_active:
+            return
 
+        reference_price = (
+            position.highest_price
+            if position.side == PositionSide.LONG
+            else position.lowest_price
+        )
+        mode = "PERCENT"
+        distance = reference_price * self.config.trailing_stop_pct
+
+        atr_value = float(atr or 0.0)
+        if self.config.atr_trailing_enabled and atr_value > 0:
+            min_distance = reference_price * self.config.atr_trailing_min_pct
+            max_distance = reference_price * self.config.atr_trailing_max_pct
+            distance = min(
+                max(atr_value * self.config.atr_trailing_multiplier, min_distance),
+                max_distance,
+            )
+            mode = "ATR"
+
+        previous = position.trailing_stop_price
         if position.side == PositionSide.LONG:
-            candidate = position.highest_price * (1 - self.config.trailing_stop_pct)
-            if position.trailing_stop_price is None:
-                position.trailing_stop_price = candidate
-            else:
-                position.trailing_stop_price = max(
-                    position.trailing_stop_price,
-                    candidate,
-                )
+            candidate = reference_price - distance
+            candidate = max(candidate, position.stop_price)
+            position.trailing_stop_price = (
+                candidate if previous is None else max(previous, candidate)
+            )
         else:
-            candidate = position.lowest_price * (1 + self.config.trailing_stop_pct)
-            if position.trailing_stop_price is None:
-                position.trailing_stop_price = candidate
-            else:
-                position.trailing_stop_price = min(
-                    position.trailing_stop_price,
-                    candidate,
-                )
+            candidate = reference_price + distance
+            candidate = min(candidate, position.stop_price)
+            position.trailing_stop_price = (
+                candidate if previous is None else min(previous, candidate)
+            )
+
+        if previous != position.trailing_stop_price:
+            position.metadata["atr_trailing"] = {
+                "mode": mode,
+                "atr": atr_value,
+                "multiplier": float(self.config.atr_trailing_multiplier),
+                "reference_price": float(reference_price),
+                "distance": float(distance),
+                "previous_stop": None if previous is None else float(previous),
+                "new_stop": float(position.trailing_stop_price),
+                "reason": "ATR tabanlı takip eden stop yalnızca kâr yönünde güncellendi.",
+            }
 
     def _close_quantity(
         self,
@@ -338,6 +376,7 @@ class PositionManagementEngine:
         symbol: str,
         *,
         price: float,
+        atr: Optional[float] = None,
     ) -> List[PositionAction]:
         if price <= 0:
             raise ValueError("price pozitif olmalıdır.")
@@ -349,7 +388,7 @@ class PositionManagementEngine:
         actions: List[PositionAction] = []
         self._update_extremes(position, price)
         self._activate_break_even(position, price)
-        self._update_trailing_stop(position, price)
+        self._update_trailing_stop(position, price, atr=atr)
 
         if self.daily_risk is not None and self.daily_risk.blocked:
             actions.append(
