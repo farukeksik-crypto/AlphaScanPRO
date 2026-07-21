@@ -21,8 +21,11 @@ from engine.trade_intelligence import analyze_closed_trade
 class RobotConfig:
     starting_balance: float = 1_000_000.0
     commission_rate: float = 0.001
+    slippage_rate: float = 0.0005
     break_even_trigger_pct: float = 0.03
     break_even_buffer_pct: float = 0.002
+    break_even_extra_buffer_pct: float = 0.0002
+    break_even_include_costs: bool = True
     trailing_stop_pct: float = 0.015
     atr_trailing_enabled: bool = True
     atr_trailing_multiplier: float = 2.0
@@ -1527,8 +1530,19 @@ class RobotEngine:
                 trigger_price = entry_price * (
                     1.0 + self.config.break_even_trigger_pct
                 )
+                break_even_cost_buffer_pct = 0.0
+                if self.config.break_even_include_costs:
+                    break_even_cost_buffer_pct = (
+                        2.0 * self.config.commission_rate
+                        + 2.0 * self.config.slippage_rate
+                        + self.config.break_even_extra_buffer_pct
+                    )
+                effective_break_even_buffer_pct = max(
+                    self.config.break_even_buffer_pct,
+                    break_even_cost_buffer_pct,
+                )
                 break_even_stop = entry_price * (
-                    1.0 + self.config.break_even_buffer_pct
+                    1.0 + effective_break_even_buffer_pct
                 )
 
                 if (
@@ -1565,7 +1579,13 @@ class RobotEngine:
                             self._now(),
                             (
                                 f"{self.market} | {symbol} break-even aktif | "
+                                f"neden=kâr eşiği aşıldı ve işlem maliyetleri güvenceye alındı | "
                                 f"fiyat={current_price:.4f} | "
+                                f"giriş={entry_price:.4f} | "
+                                f"komisyon=%{self.config.commission_rate * 100:.3f} | "
+                                f"slipaj=%{self.config.slippage_rate * 100:.3f} | "
+                                f"tampon=%{effective_break_even_buffer_pct * 100:.3f} | "
+                                f"eski_stop={stop_price:.4f} | "
                                 f"yeni_stop={break_even_stop:.4f}"
                             ),
                         ),

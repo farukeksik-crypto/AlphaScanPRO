@@ -95,3 +95,9 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - Trend çizgisi, serbest çizgi, dikdörtgen, daire ve şekil silme araçları etkinleştirildi.
 - Temel görünüm ve analiz görünümü hazır ayarları ile oturum içi gösterge tercihleri eklendi.
 - Robot işlem katmanı ve açıklamalı 10.11C analiz paneli korundu.
+
+## Sprint 10.12A — Maliyet Korumalı Break-even
+- Break-even stop seviyesi çift yön komisyon, slipaj ve ek güvenlik tamponunu kapsayacak şekilde hesaplanır.
+- Stop seviyesi hiçbir zaman geriye taşınmaz ve her pozisyonda yalnızca bir kez etkinleşir.
+- Aktivasyon nedeni, eski/yeni stop ve maliyet tamponu robot sistem olaylarına ve pozisyon metadata alanına kaydedilir.
+- Yeni hedefli testler: `tests/test_break_even_engine_10_12a.py`.

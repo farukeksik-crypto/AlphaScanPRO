@@ -33,6 +33,10 @@ class PositionManagementConfig:
     trailing_stop_pct: float = 0.025
     break_even_trigger_pct: float = 0.03
     break_even_offset_pct: float = 0.002
+    commission_rate: float = 0.001
+    slippage_rate: float = 0.0005
+    break_even_extra_buffer_pct: float = 0.0002
+    break_even_include_costs: bool = True
     partial_take_profit_pct: float = 0.04
     partial_close_ratio: float = 0.50
     daily_loss_limit_pct: float = 0.04
@@ -49,6 +53,9 @@ class PositionManagementConfig:
             "trailing_stop_pct",
             "break_even_trigger_pct",
             "break_even_offset_pct",
+            "commission_rate",
+            "slippage_rate",
+            "break_even_extra_buffer_pct",
             "partial_take_profit_pct",
             "daily_loss_limit_pct",
         ):
@@ -226,17 +233,34 @@ class PositionManagementEngine:
         if position.return_pct(price) < self.config.break_even_trigger_pct:
             return
 
-        position.break_even_active = True
+        cost_buffer_pct = 0.0
+        if self.config.break_even_include_costs:
+            cost_buffer_pct = (
+                2.0 * self.config.commission_rate
+                + 2.0 * self.config.slippage_rate
+                + self.config.break_even_extra_buffer_pct
+            )
+        effective_offset_pct = max(
+            self.config.break_even_offset_pct,
+            cost_buffer_pct,
+        )
+        previous_stop = position.stop_price
         if position.side == PositionSide.LONG:
-            position.stop_price = max(
-                position.stop_price,
-                position.entry_price * (1 + self.config.break_even_offset_pct),
-            )
+            candidate_stop = position.entry_price * (1 + effective_offset_pct)
+            position.stop_price = max(position.stop_price, candidate_stop)
         else:
-            position.stop_price = min(
-                position.stop_price,
-                position.entry_price * (1 - self.config.break_even_offset_pct),
-            )
+            candidate_stop = position.entry_price * (1 - effective_offset_pct)
+            position.stop_price = min(position.stop_price, candidate_stop)
+
+        position.break_even_active = True
+        position.metadata["break_even"] = {
+            "activated_at_price": float(price),
+            "previous_stop": float(previous_stop),
+            "new_stop": float(position.stop_price),
+            "effective_offset_pct": float(effective_offset_pct),
+            "cost_buffer_pct": float(cost_buffer_pct),
+            "reason": "Kâr eşiği aşıldı; stop işlem maliyetleri dahil güvenli maliyet seviyesine taşındı.",
+        }
 
     def _update_trailing_stop(
         self,

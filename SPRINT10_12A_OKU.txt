@@ -1,0 +1,17 @@
+AlphaScan PRO — Sprint 10.12A
+Maliyet Korumalı Break-even Engine
+
+1) Bu klasörün içindeki apply_sprint10_12a.py, verify_sprint10_12a.py ve payload klasörünü proje ana klasörüne kopyalayın.
+2) PowerShell:
+   py -3.13 .\apply_sprint10_12a.py
+   py -3.13 .\verify_sprint10_12a.py
+3) Başarılıysa:
+   git add .
+   git commit -m "Sprint 10.12A cost-aware break-even engine"
+
+Değişiklik özeti:
+- Break-even stop çift yön komisyon ve slipaj maliyetini kapsar.
+- Ek güvenlik tamponu eklenir.
+- Stop geriye taşınmaz.
+- Aktivasyon tek kez yapılır.
+- Neden ve maliyet ayrıntıları log/metadata içinde tutulur.
