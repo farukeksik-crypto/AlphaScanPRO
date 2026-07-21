@@ -1,0 +1,22 @@
+ALPHASCAN PRO - SPRINT 10.13A TRADE JOURNAL PRO
+
+1) Bu klasördeki dört öğeyi proje ana klasörüne kopyalayın:
+   - apply_sprint10_13a.py
+   - verify_sprint10_13a.py
+   - payload
+   - SPRINT10_13A_OKU.txt
+
+2) PowerShell:
+   cd C:\Users\Faruk\AlphaScanPRO_Git_Temiz
+   py -3.13 .\apply_sprint10_13a.py
+   py -3.13 .\verify_sprint10_13a.py
+
+3) Beklenen sonuç:
+   SPRINT 10.13A DOĞRULAMA BAŞARILI
+
+4) Commit:
+   git add .
+   git commit -m "Sprint 10.13A Trade Journal PRO"
+
+Yeni kayıtlar database/alphascan.db içindeki trade_journal_pro tablosuna yazılır.
+Tam çıkışlar ve Smart Exit kısmi satışları ayrı olaylar olarak saklanır.

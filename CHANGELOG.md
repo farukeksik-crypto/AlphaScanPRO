@@ -122,3 +122,11 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - Break-even, ATR trailing ve TP1 sonrası kâr koruma bağlamı skora katılıyor.
 - Eski Smart Exit API davranışı geriye dönük uyumlu tutuldu.
 
+## Sprint 10.13A - Trade Journal PRO
+- Ayrıntılı işlem olay günlüğü eklendi.
+- Tam ve kısmi çıkışlar ayrı kayıtlanıyor.
+- Giriş/çıkış puanı, Smart Exit kararı ve onay sayısı tutuluyor.
+- Break-even, ATR trailing ve TP aşaması kaydediliyor.
+- MFE, MAE, işlem süresi ve metadata saklanıyor.
+- Hesap bazlı özet metriği eklendi.
+
