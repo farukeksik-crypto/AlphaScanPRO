@@ -9,7 +9,9 @@ from config.market_universes import (
     BIST_UNIVERSES, get_bist_universe, get_crypto_groups, get_crypto_pairs,
 )
 from engine.ai.parameter_lab import best_profile, run_parameter_lab
-from engine.ai.walk_forward_lab import best_walk_forward_profile, run_walk_forward_lab
+from engine.ai.walk_forward_lab import (
+    add_parameter_robustness, best_robust_profile, best_walk_forward_profile, run_walk_forward_lab,
+)
 from engine.backtest_engine import BacktestConfig, run_backtest
 
 
@@ -128,6 +130,8 @@ def render_strategy_lab(data_engine, watchlists: dict):
                     else run_parameter_lab(**common)
                 )
 
+            if mode == "Walk-Forward PRO":
+                results = add_parameter_robustness(results)
             st.session_state["strategy_lab_v2"] = results
             st.session_state["strategy_lab_mode_v2"] = mode
             st.session_state["strategy_lab_asset_v2"] = f"{market} — {symbol} — {interval}"
@@ -145,6 +149,7 @@ def render_strategy_lab(data_engine, watchlists: dict):
 
     if stored_mode == "Walk-Forward PRO":
         best = best_walk_forward_profile(results)
+        robust = best_robust_profile(results)
         if best:
             c1, c2, c3, c4, c5, c6 = st.columns(6)
             c1.metric("Giriş", int(best["Minimum Giriş Puanı"]))
@@ -153,12 +158,23 @@ def render_strategy_lab(data_engine, watchlists: dict):
             c4.metric("Doğrulama Getirisi", f"%{best['Doğrulama Getirisi %']:.2f}")
             c5.metric("Pozitif Fold", f"%{best.get('Pozitif Fold %', 0):.0f}")
             c6.metric("Sağlamlık", best["Sağlamlık"])
+        if robust:
+            risk = robust.get("Aşırı Uyum Riski", "Bilinmiyor")
+            st.info(
+                "En sağlam parametre platosu: "
+                f"G{int(robust['Minimum Giriş Puanı'])} / "
+                f"Ç{int(robust['Çıkış Puanı'])} / "
+                f"B{int(robust['Maksimum Bekleme'])} — "
+                f"parametre sağlamlığı %{robust.get('Parametre Sağlamlığı', 0):.1f}, "
+                f"aşırı uyum riski: {risk}."
+            )
         format_map = {
             "Eğitim Getirisi %": "{:+.2f}%", "Doğrulama Getirisi %": "{:+.2f}%",
             "Doğrulama Kâr Faktörü": "{:.2f}", "Doğrulama Başarı Oranı %": "{:.2f}%",
             "Doğrulama Maksimum Düşüş %": "{:.2f}%", "Doğrulama Sharpe": "{:.2f}",
             "Walk-Forward Puanı": "{:.2f}", "Pozitif Fold %": "{:.2f}%",
-            "Stabilite Puanı": "{:.2f}",
+            "Stabilite Puanı": "{:.2f}", "Komşu Ortalama Puan": "{:.2f}",
+            "Parametre Sağlamlığı": "{:.2f}",
         }
         chart_col = "Walk-Forward Puanı"
     else:
