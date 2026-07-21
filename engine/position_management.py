@@ -44,6 +44,9 @@ class PositionManagementConfig:
     break_even_include_costs: bool = True
     partial_take_profit_pct: float = 0.04
     partial_close_ratio: float = 0.50
+    enable_multi_stage_take_profit: bool = True
+    take_profit_levels: tuple[float, float, float] = (0.04, 0.07, 0.10)
+    take_profit_ratios: tuple[float, float, float] = (0.40, 0.35, 1.00)
     daily_loss_limit_pct: float = 0.04
     enable_stop_loss: bool = True
     enable_take_profit: bool = True
@@ -74,6 +77,16 @@ class PositionManagementConfig:
             raise ValueError("atr_trailing_min_pct, atr_trailing_max_pct değerinden büyük olamaz.")
         if not 0 < self.partial_close_ratio <= 1:
             raise ValueError("partial_close_ratio 0-1 arasında olmalıdır.")
+        if len(self.take_profit_levels) != 3 or len(self.take_profit_ratios) != 3:
+            raise ValueError("TP seviyeleri ve oranları üç elemanlı olmalıdır.")
+        if any(level <= 0 for level in self.take_profit_levels):
+            raise ValueError("TP seviyeleri pozitif olmalıdır.")
+        if tuple(sorted(self.take_profit_levels)) != self.take_profit_levels:
+            raise ValueError("TP seviyeleri küçükten büyüğe sıralanmalıdır.")
+        if any(ratio <= 0 or ratio > 1 for ratio in self.take_profit_ratios):
+            raise ValueError("TP satış oranları 0-1 arasında olmalıdır.")
+        if sum(self.take_profit_ratios[:2]) >= 1:
+            raise ValueError("TP1 ve TP2 toplam oranı 1'den küçük olmalıdır.")
 
 
 @dataclass(slots=True)
@@ -90,6 +103,7 @@ class ManagedPosition:
     trailing_stop_price: Optional[float] = None
     break_even_active: bool = False
     partial_taken: bool = False
+    partial_stage: int = 0
     closed: bool = False
     remaining_quantity: float = 0.0
     realized_pnl: float = 0.0
@@ -402,7 +416,41 @@ class PositionManagementEngine:
             )
             return actions
 
-        if (
+        if self.config.enable_multi_stage_take_profit:
+            stage = position.partial_stage
+            if stage < 3 and position.return_pct(price) >= self.config.take_profit_levels[stage]:
+                if stage < 2:
+                    qty = min(
+                        position.remaining_quantity,
+                        position.quantity * self.config.take_profit_ratios[stage],
+                    )
+                    close_position = False
+                else:
+                    qty = position.remaining_quantity
+                    close_position = True
+                action = self._close_quantity(
+                    position,
+                    quantity=qty,
+                    price=price,
+                    reason=(
+                        ExitReason.TAKE_PROFIT
+                        if close_position
+                        else ExitReason.PARTIAL_TAKE_PROFIT
+                    ),
+                    close_position=close_position,
+                )
+                position.partial_stage += 1
+                position.partial_taken = position.partial_stage > 0
+                action.metadata.update({
+                    "tp_stage": position.partial_stage,
+                    "configured_level_pct": self.config.take_profit_levels[stage],
+                    "configured_ratio": self.config.take_profit_ratios[stage],
+                    "remaining_quantity": position.remaining_quantity,
+                })
+                position.metadata.setdefault("take_profit_history", []).append(dict(action.metadata))
+                actions.append(action)
+                return actions
+        elif (
             self.config.enable_partial_take_profit
             and not position.partial_taken
             and position.return_pct(price) >= self.config.partial_take_profit_pct
@@ -416,6 +464,7 @@ class PositionManagementEngine:
                 close_position=False,
             )
             position.partial_taken = True
+            position.partial_stage = 1
             actions.append(action)
             if position.closed:
                 return actions
@@ -457,6 +506,7 @@ class PositionManagementEngine:
 
             if (
                 self.config.enable_take_profit
+                and not self.config.enable_multi_stage_take_profit
                 and price >= position.take_profit_price
             ):
                 actions.append(
@@ -507,6 +557,7 @@ class PositionManagementEngine:
 
             if (
                 self.config.enable_take_profit
+                and not self.config.enable_multi_stage_take_profit
                 and price <= position.take_profit_price
             ):
                 actions.append(

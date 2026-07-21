@@ -109,3 +109,9 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - Stop hiçbir zaman geriye taşınmıyor.
 - ATR modu, mesafe, eski stop ve yeni stop günlükleniyor.
 
+
+## Sprint 10.12C — Multi-stage Partial Take Profit
+- TP1/TP2 kısmi satış ve TP3 nihai çıkış eklendi.
+- Satış oranları başlangıç miktarı üzerinden hesaplanır.
+- Her fiyat güncellemesinde en fazla bir TP kademesi çalışır.
+- LONG/SHORT uyumu ve aşama günlüğü eklendi.
