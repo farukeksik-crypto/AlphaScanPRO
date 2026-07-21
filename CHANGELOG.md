@@ -130,3 +130,10 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - MFE, MAE, işlem süresi ve metadata saklanıyor.
 - Hesap bazlı özet metriği eklendi.
 
+## Sprint 10.13B - Performance Analytics PRO
+- Trade Journal PRO için Win Rate, Profit Factor ve Expectancy eklendi.
+- Equity Curve, Max Drawdown ve dönemsel PnL hesaplandı.
+- Sembol, piyasa ve çıkış aksiyonu bazlı performans analizi eklendi.
+- Streamlit menüsüne Performance Analytics PRO sayfası eklendi.
+- Eski PerformanceAnalytics API'si geriye dönük uyumlu tutuldu.
+

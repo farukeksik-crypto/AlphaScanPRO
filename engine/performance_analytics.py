@@ -447,3 +447,316 @@ class PerformanceRobotBridge:
 
     def dashboard(self) -> dict[str, Any]:
         return self.analytics.dashboard_payload(self.portfolio.trades)
+
+# ---------------------------------------------------------------------------
+# Sprint 10.13B - Trade Journal PRO analytics
+# The original PaperTrading analytics API above remains fully compatible.
+# ---------------------------------------------------------------------------
+
+import math as _math
+import sqlite3 as _sqlite3
+from datetime import datetime as _datetime
+from typing import Sequence as _Sequence
+
+
+@dataclass(slots=True)
+class JournalPerformanceMetrics:
+    trade_count: int = 0
+    winning_trades: int = 0
+    losing_trades: int = 0
+    breakeven_trades: int = 0
+    win_rate_pct: float = 0.0
+    gross_profit: float = 0.0
+    gross_loss: float = 0.0
+    net_pnl: float = 0.0
+    profit_factor: float = 0.0
+    expectancy: float = 0.0
+    average_win: float = 0.0
+    average_loss: float = 0.0
+    payoff_ratio: float = 0.0
+    max_drawdown: float = 0.0
+    max_drawdown_pct: float = 0.0
+    recovery_factor: float = 0.0
+    average_holding_minutes: float = 0.0
+    average_mfe_pct: float = 0.0
+    average_mae_pct: float = 0.0
+    total_commission: float = 0.0
+    best_trade: float = 0.0
+    worst_trade: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class JournalPerformanceReport:
+    metrics: JournalPerformanceMetrics
+    equity_curve: list[dict[str, Any]] = field(default_factory=list)
+    daily_pnl: list[dict[str, Any]] = field(default_factory=list)
+    weekly_pnl: list[dict[str, Any]] = field(default_factory=list)
+    monthly_pnl: list[dict[str, Any]] = field(default_factory=list)
+    symbol_stats: list[dict[str, Any]] = field(default_factory=list)
+    exit_stats: list[dict[str, Any]] = field(default_factory=list)
+    market_stats: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "metrics": self.metrics.to_dict(),
+            "equity_curve": self.equity_curve,
+            "daily_pnl": self.daily_pnl,
+            "weekly_pnl": self.weekly_pnl,
+            "monthly_pnl": self.monthly_pnl,
+            "symbol_stats": self.symbol_stats,
+            "exit_stats": self.exit_stats,
+            "market_stats": self.market_stats,
+        }
+
+
+def _journal_float(value: Any, default: float = 0.0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if _math.isfinite(number) else default
+
+
+def _journal_datetime(value: Any) -> _datetime | None:
+    if isinstance(value, _datetime):
+        return value
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return _datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _journal_row_dict(row: Any) -> dict[str, Any]:
+    if isinstance(row, dict):
+        return dict(row)
+    if isinstance(row, _sqlite3.Row):
+        return dict(row)
+    raise TypeError("İşlem satırı dict veya sqlite3.Row olmalıdır.")
+
+
+def _normalize_journal_trades(rows: Iterable[Any]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for raw in rows:
+        row = _journal_row_dict(raw)
+        closed_at = str(row.get("closed_at") or row.get("created_at") or "")
+        normalized.append({
+            **row,
+            "closed_at": closed_at,
+            "net_pnl": _journal_float(row.get("net_pnl", row.get("profit", 0.0))),
+            "commission": _journal_float(row.get("commission", 0.0)),
+            "holding_minutes": _journal_float(row.get("holding_minutes", 0.0)),
+            "mfe_pct": _journal_float(row.get("mfe_pct", 0.0)),
+            "mae_pct": _journal_float(row.get("mae_pct", 0.0)),
+            "symbol": str(row.get("symbol") or "BİLİNMİYOR"),
+            "market": str(row.get("market") or "BİLİNMİYOR"),
+            "exit_action": str(row.get("exit_action") or row.get("event_type") or "BİLİNMİYOR"),
+            "event_type": str(row.get("event_type") or ""),
+        })
+    normalized.sort(key=lambda item: (_journal_datetime(item["closed_at"]) or _datetime.min, str(item.get("id", ""))))
+    return normalized
+
+
+def calculate_journal_performance(
+    rows: Iterable[Any],
+    *,
+    starting_equity: float = 0.0,
+) -> JournalPerformanceReport:
+    trades = _normalize_journal_trades(rows)
+    pnls = [trade["net_pnl"] for trade in trades]
+    wins = [pnl for pnl in pnls if pnl > 0]
+    losses = [pnl for pnl in pnls if pnl < 0]
+    breakeven = [pnl for pnl in pnls if pnl == 0]
+    gross_profit = sum(wins)
+    gross_loss = abs(sum(losses))
+    trade_count = len(trades)
+    net_pnl = sum(pnls)
+    profit_factor = gross_profit / gross_loss if gross_loss > 0 else (_math.inf if gross_profit > 0 else 0.0)
+    average_win = gross_profit / len(wins) if wins else 0.0
+    average_loss = gross_loss / len(losses) if losses else 0.0
+
+    equity_curve: list[dict[str, Any]] = []
+    equity = float(starting_equity)
+    peak = equity
+    max_drawdown = 0.0
+    max_drawdown_pct = 0.0
+    for index, trade in enumerate(trades, start=1):
+        equity += trade["net_pnl"]
+        peak = max(peak, equity)
+        drawdown = max(0.0, peak - equity)
+        drawdown_pct = drawdown / peak * 100.0 if peak > 0 else 0.0
+        max_drawdown = max(max_drawdown, drawdown)
+        max_drawdown_pct = max(max_drawdown_pct, drawdown_pct)
+        equity_curve.append({
+            "trade_no": index,
+            "closed_at": trade["closed_at"],
+            "symbol": trade["symbol"],
+            "net_pnl": trade["net_pnl"],
+            "equity": equity,
+            "peak": peak,
+            "drawdown": drawdown,
+            "drawdown_pct": drawdown_pct,
+        })
+
+    metrics = JournalPerformanceMetrics(
+        trade_count=trade_count,
+        winning_trades=len(wins),
+        losing_trades=len(losses),
+        breakeven_trades=len(breakeven),
+        win_rate_pct=len(wins) / trade_count * 100.0 if trade_count else 0.0,
+        gross_profit=gross_profit,
+        gross_loss=gross_loss,
+        net_pnl=net_pnl,
+        profit_factor=profit_factor,
+        expectancy=net_pnl / trade_count if trade_count else 0.0,
+        average_win=average_win,
+        average_loss=average_loss,
+        payoff_ratio=average_win / average_loss if average_loss > 0 else (_math.inf if average_win > 0 else 0.0),
+        max_drawdown=max_drawdown,
+        max_drawdown_pct=max_drawdown_pct,
+        recovery_factor=net_pnl / max_drawdown if max_drawdown > 0 else (_math.inf if net_pnl > 0 else 0.0),
+        average_holding_minutes=sum(t["holding_minutes"] for t in trades) / trade_count if trade_count else 0.0,
+        average_mfe_pct=sum(t["mfe_pct"] for t in trades) / trade_count if trade_count else 0.0,
+        average_mae_pct=sum(t["mae_pct"] for t in trades) / trade_count if trade_count else 0.0,
+        total_commission=sum(t["commission"] for t in trades),
+        best_trade=max(pnls, default=0.0),
+        worst_trade=min(pnls, default=0.0),
+    )
+    return JournalPerformanceReport(
+        metrics=metrics,
+        equity_curve=equity_curve,
+        daily_pnl=_journal_period_stats(trades, "daily"),
+        weekly_pnl=_journal_period_stats(trades, "weekly"),
+        monthly_pnl=_journal_period_stats(trades, "monthly"),
+        symbol_stats=_journal_group_stats(trades, "symbol"),
+        exit_stats=_journal_group_stats(trades, "exit_action"),
+        market_stats=_journal_group_stats(trades, "market"),
+    )
+
+
+def _journal_period_key(value: str, period: str) -> str:
+    dt = _journal_datetime(value)
+    if dt is None:
+        return "TARİH YOK"
+    if period == "daily":
+        return dt.strftime("%Y-%m-%d")
+    if period == "weekly":
+        year, week, _ = dt.isocalendar()
+        return f"{year}-W{week:02d}"
+    if period == "monthly":
+        return dt.strftime("%Y-%m")
+    raise ValueError(f"Desteklenmeyen dönem: {period}")
+
+
+def _journal_period_stats(trades: _Sequence[dict[str, Any]], period: str) -> list[dict[str, Any]]:
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for trade in trades:
+        buckets.setdefault(_journal_period_key(trade["closed_at"], period), []).append(trade)
+    result: list[dict[str, Any]] = []
+    cumulative = 0.0
+    for key in sorted(buckets):
+        items = buckets[key]
+        pnl = sum(item["net_pnl"] for item in items)
+        cumulative += pnl
+        result.append({
+            "period": key,
+            "trade_count": len(items),
+            "net_pnl": pnl,
+            "cumulative_pnl": cumulative,
+            "win_rate_pct": sum(1 for item in items if item["net_pnl"] > 0) / len(items) * 100.0,
+        })
+    return result
+
+
+def _journal_group_stats(trades: _Sequence[dict[str, Any]], field_name: str) -> list[dict[str, Any]]:
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for trade in trades:
+        buckets.setdefault(str(trade.get(field_name) or "BİLİNMİYOR"), []).append(trade)
+    result: list[dict[str, Any]] = []
+    for group, items in buckets.items():
+        pnls = [item["net_pnl"] for item in items]
+        wins = [pnl for pnl in pnls if pnl > 0]
+        losses = [pnl for pnl in pnls if pnl < 0]
+        gross_profit = sum(wins)
+        gross_loss = abs(sum(losses))
+        result.append({
+            field_name: group,
+            "trade_count": len(items),
+            "winning_trades": len(wins),
+            "win_rate_pct": len(wins) / len(items) * 100.0,
+            "net_pnl": sum(pnls),
+            "average_pnl": sum(pnls) / len(items),
+            "profit_factor": gross_profit / gross_loss if gross_loss > 0 else (_math.inf if gross_profit > 0 else 0.0),
+            "average_holding_minutes": sum(item["holding_minutes"] for item in items) / len(items),
+        })
+    result.sort(key=lambda item: (item["net_pnl"], item["trade_count"]), reverse=True)
+    return result
+
+
+def load_trade_journal_rows(
+    connection: _sqlite3.Connection,
+    *,
+    account_id: str | None = None,
+    market: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    include_partial_exits: bool = True,
+) -> list[dict[str, Any]]:
+    from engine.trade_journal_pro import ensure_trade_journal_pro
+
+    ensure_trade_journal_pro(connection)
+    connection.row_factory = _sqlite3.Row
+    clauses: list[str] = []
+    params: list[Any] = []
+    if account_id:
+        clauses.append("account_id = ?")
+        params.append(account_id)
+    if market:
+        clauses.append("market = ?")
+        params.append(market)
+    if date_from:
+        clauses.append("closed_at >= ?")
+        params.append(date_from)
+    if date_to:
+        clauses.append("closed_at <= ?")
+        params.append(date_to)
+    if not include_partial_exits:
+        clauses.append("UPPER(event_type) NOT LIKE '%PARTIAL%'")
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    rows = connection.execute(
+        f"SELECT * FROM trade_journal_pro{where} ORDER BY closed_at, id",
+        params,
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def build_performance_report(
+    connection: _sqlite3.Connection,
+    *,
+    account_id: str | None = None,
+    market: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    include_partial_exits: bool = True,
+    starting_equity: float = 0.0,
+) -> JournalPerformanceReport:
+    return calculate_journal_performance(
+        load_trade_journal_rows(
+            connection,
+            account_id=account_id,
+            market=market,
+            date_from=date_from,
+            date_to=date_to,
+            include_partial_exits=include_partial_exits,
+        ),
+        starting_equity=starting_equity,
+    )
+
+
+# Friendly alias used by Sprint 10.13B tests and external callers.
+calculate_performance = calculate_journal_performance
