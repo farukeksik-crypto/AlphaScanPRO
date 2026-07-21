@@ -1,0 +1,19 @@
+AlphaScan PRO — Sprint 10.14C
+Strategy Acceptance Gate
+
+Kurulum:
+1. ZIP içeriğini proje ana klasörüne çıkarın.
+2. py -3.13 .\apply_sprint10_14c.py
+3. py -3.13 .\verify_sprint10_14c.py
+4. py -3.13 -m streamlit run app.py
+
+Eklenenler:
+- Walk-forward profilleri için canlıya hazırlık kabul kapısı
+- Dağıtım puanı (0-100)
+- KABUL / RED kararı ve açık ret nedenleri
+- Minimum kâr faktörü, pozitif fold, stabilite, sağlamlık ve işlem sayısı eşikleri
+- Maksimum drawdown ve eğitim-doğrulama bozulması sınırları
+- Yüksek aşırı uyum riskini otomatik reddetme
+- En iyi kabul edilmiş profil ve kabul oranı
+
+Not: KABUL sonucu gerçek para ile işlem garantisi değildir. Paper trading ve risk limitleri zorunludur.
