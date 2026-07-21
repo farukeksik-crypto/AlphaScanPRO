@@ -29,7 +29,7 @@ def _load(data_engine, market, symbol, interval, crypto_group):
 
 
 def render_strategy_lab(data_engine, watchlists: dict):
-    st.title("🧪 Strategy Lab PRO V2")
+    st.title("🧪 Strategy Lab PRO V3")
     st.warning(
         "Walk-Forward PRO veriyi eğitim ve doğrulama dönemlerine ayırır. "
         "Bu yöntem aşırı uyum riskini azaltır fakat tamamen ortadan kaldırmaz."
@@ -74,8 +74,10 @@ def render_strategy_lab(data_engine, watchlists: dict):
     st.metric("Toplam kombinasyon", count)
 
     train_ratio = 0.70
+    folds = 1
     if mode == "Walk-Forward PRO":
-        train_ratio = st.slider("Eğitim oranı (%)", 50, 85, 70, 5) / 100
+        train_ratio = st.slider("İlk eğitim oranı (%)", 50, 85, 60, 5) / 100
+        folds = st.slider("Rolling doğrulama fold sayısı", 1, 5, 3, 1)
 
     c1, c2, c3, c4 = st.columns(4)
     cash = c1.number_input("Başlangıç sermayesi", 1_000.0, value=1_000_000.0, step=100_000.0)
@@ -121,7 +123,7 @@ def render_strategy_lab(data_engine, watchlists: dict):
                     entry_scores=entries, exit_scores=exits, holding_bars=holdings,
                 )
                 results = (
-                    run_walk_forward_lab(**common, train_ratio=train_ratio)
+                    run_walk_forward_lab(**common, train_ratio=train_ratio, folds=folds)
                     if mode == "Walk-Forward PRO"
                     else run_parameter_lab(**common)
                 )
@@ -144,17 +146,19 @@ def render_strategy_lab(data_engine, watchlists: dict):
     if stored_mode == "Walk-Forward PRO":
         best = best_walk_forward_profile(results)
         if best:
-            c1, c2, c3, c4, c5 = st.columns(5)
+            c1, c2, c3, c4, c5, c6 = st.columns(6)
             c1.metric("Giriş", int(best["Minimum Giriş Puanı"]))
             c2.metric("Çıkış", int(best["Çıkış Puanı"]))
             c3.metric("Bekleme", int(best["Maksimum Bekleme"]))
             c4.metric("Doğrulama Getirisi", f"%{best['Doğrulama Getirisi %']:.2f}")
-            c5.metric("Sağlamlık", best["Sağlamlık"])
+            c5.metric("Pozitif Fold", f"%{best.get('Pozitif Fold %', 0):.0f}")
+            c6.metric("Sağlamlık", best["Sağlamlık"])
         format_map = {
             "Eğitim Getirisi %": "{:+.2f}%", "Doğrulama Getirisi %": "{:+.2f}%",
             "Doğrulama Kâr Faktörü": "{:.2f}", "Doğrulama Başarı Oranı %": "{:.2f}%",
             "Doğrulama Maksimum Düşüş %": "{:.2f}%", "Doğrulama Sharpe": "{:.2f}",
-            "Walk-Forward Puanı": "{:.2f}",
+            "Walk-Forward Puanı": "{:.2f}", "Pozitif Fold %": "{:.2f}%",
+            "Stabilite Puanı": "{:.2f}",
         }
         chart_col = "Walk-Forward Puanı"
     else:

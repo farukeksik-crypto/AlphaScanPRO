@@ -5,6 +5,7 @@ from itertools import product
 from math import isfinite
 from typing import Any, Callable
 
+import numpy as np
 import pandas as pd
 
 
@@ -31,7 +32,6 @@ def _score(train: dict, test: dict) -> float:
         + max(0.0, 25.0 - dd * 1.5)
         + min(count, 40) * 0.35
     )
-
     if count < 5:
         value -= 30.0
     elif count < 10:
@@ -40,12 +40,9 @@ def _score(train: dict, test: dict) -> float:
         value -= 25.0
     if te < 0:
         value -= abs(te) * 2.0
-
     value -= min(abs(tr - te), 40.0) * 0.65
-
     if tr > 0 and te <= 0:
         value -= 20.0
-
     return round(value, 2)
 
 
@@ -59,6 +56,74 @@ def _label(train_return: float, test_return: float, pf: float, count: int) -> st
     return "Zayıf"
 
 
+def _build_folds(length: int, train_ratio: float, folds: int) -> list[tuple[int, int, int, int]]:
+    if folds < 1:
+        raise ValueError("Fold sayısı en az 1 olmalıdır.")
+    initial_train = int(length * train_ratio)
+    remaining = length - initial_train
+    test_size = remaining // folds
+    if initial_train < 220 or test_size < 60:
+        raise ValueError(
+            "Rolling walk-forward için ilk eğitimde en az 220, "
+            "her doğrulama fold'unda en az 60 mum gerekir."
+        )
+    result: list[tuple[int, int, int, int]] = []
+    for fold in range(folds):
+        train_start = 0
+        train_end = initial_train + fold * test_size
+        test_start = train_end
+        test_end = length if fold == folds - 1 else test_start + test_size
+        result.append((train_start, train_end, test_start, test_end))
+    return result
+
+
+def _aggregate_fold_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    completed = [row for row in rows if row.get("Durum") == "Tamamlandı"]
+    if not completed:
+        return {"Durum": "Hata", "Hata": "Hiçbir fold tamamlanamadı."}
+
+    train_returns = [_num(row["Eğitim Getirisi %"]) for row in completed]
+    test_returns = [_num(row["Doğrulama Getirisi %"]) for row in completed]
+    pfs = [_num(row["Doğrulama Kâr Faktörü"]) for row in completed]
+    win_rates = [_num(row["Doğrulama Başarı Oranı %"]) for row in completed]
+    drawdowns = [_num(row["Doğrulama Maksimum Düşüş %"]) for row in completed]
+    sharpes = [_num(row["Doğrulama Sharpe"]) for row in completed]
+    counts = [int(_num(row["Doğrulama İşlem"])) for row in completed]
+    scores = [_num(row["Walk-Forward Puanı"]) for row in completed]
+
+    avg_train = float(np.mean(train_returns))
+    avg_test = float(np.mean(test_returns))
+    avg_pf = float(np.mean(pfs))
+    total_count = int(sum(counts))
+    positive_fold_rate = sum(value > 0 for value in test_returns) / len(test_returns) * 100
+    stability = max(0.0, 100.0 - float(np.std(test_returns, ddof=0)) * 4.0)
+    degradation = float(np.mean([abs(a - b) for a, b in zip(train_returns, test_returns)]))
+
+    label = _label(avg_train, avg_test, avg_pf, total_count)
+    if positive_fold_rate < 50 or stability < 45:
+        label = "Zayıf"
+    elif label == "Güçlü" and positive_fold_rate < 75:
+        label = "Orta"
+
+    return {
+        "Eğitim Getirisi %": round(avg_train, 2),
+        "Doğrulama Getirisi %": round(avg_test, 2),
+        "Getiri Farkı": round(degradation, 2),
+        "Doğrulama Kâr Faktörü": round(avg_pf, 3),
+        "Doğrulama Başarı Oranı %": round(float(np.mean(win_rates)), 2),
+        "Doğrulama Maksimum Düşüş %": round(float(np.max(drawdowns)), 2),
+        "Doğrulama İşlem": total_count,
+        "Doğrulama Sharpe": round(float(np.mean(sharpes)), 3),
+        "Pozitif Fold %": round(positive_fold_rate, 2),
+        "Stabilite Puanı": round(stability, 2),
+        "Fold Sayısı": len(completed),
+        "Sağlamlık": label,
+        "Walk-Forward Puanı": round(float(np.mean(scores)) + stability * 0.15, 2),
+        "Durum": "Tamamlandı",
+        "Hata": "",
+    }
+
+
 def run_walk_forward_lab(
     *,
     data: pd.DataFrame,
@@ -69,9 +134,10 @@ def run_walk_forward_lab(
     holding_bars: list[int],
     train_ratio: float = 0.70,
     max_combinations: int = 200,
+    folds: int = 1,
 ) -> pd.DataFrame:
+    """Run single-split or expanding-window rolling walk-forward validation."""
     combinations = list(product(entry_scores, exit_scores, holding_bars))
-
     if len(combinations) > max_combinations:
         raise ValueError(f"En fazla {max_combinations} kombinasyon kullanılabilir.")
     if not 0.50 <= train_ratio <= 0.85:
@@ -79,92 +145,77 @@ def run_walk_forward_lab(
 
     frame = data.copy()
     frame = frame[~frame.index.duplicated(keep="last")].sort_index()
-    split = int(len(frame) * train_ratio)
-    train_data = frame.iloc[:split].copy()
-    test_data = frame.iloc[split:].copy()
-
-    if len(train_data) < 220 or len(test_data) < 60:
-        raise ValueError(
-            "Walk-forward için eğitimde en az 220, doğrulamada 60 mum gerekir."
-        )
-
-    rows = []
+    fold_ranges = _build_folds(len(frame), train_ratio, folds)
+    rows: list[dict[str, Any]] = []
 
     for test_no, (entry, exit_value, holding) in enumerate(combinations, 1):
+        fold_rows: list[dict[str, Any]] = []
         config = replace(
             base_config,
             minimum_entry_score=float(entry),
             exit_score=float(exit_value),
             max_holding_bars=int(holding),
         )
-        train_result = run_backtest(train_data.copy(), config)
-        test_result = run_backtest(test_data.copy(), config)
 
-        error = train_result.get("error") or test_result.get("error")
-        if error:
-            rows.append({
-                "Test": test_no,
-                "Minimum Giriş Puanı": entry,
-                "Çıkış Puanı": exit_value,
-                "Maksimum Bekleme": holding,
-                "Durum": "Hata",
-                "Hata": str(error),
+        for fold_no, (train_start, train_end, test_start, test_end) in enumerate(fold_ranges, 1):
+            train_data = frame.iloc[train_start:train_end].copy()
+            test_data = frame.iloc[test_start:test_end].copy()
+            train_result = run_backtest(train_data, config)
+            test_result = run_backtest(test_data, config)
+            error = train_result.get("error") or test_result.get("error")
+            if error:
+                fold_rows.append({"Durum": "Hata", "Hata": str(error), "Fold": fold_no})
+                continue
+
+            train = train_result.get("metrics", {})
+            test = test_result.get("metrics", {})
+            tr = _num(train.get("Toplam Getiri %"))
+            te = _num(test.get("Toplam Getiri %"))
+            pf = _num(test.get("Kâr Faktörü"))
+            count = int(_num(test.get("Toplam İşlem")))
+            fold_rows.append({
+                "Fold": fold_no,
+                "Eğitim Getirisi %": tr,
+                "Doğrulama Getirisi %": te,
+                "Doğrulama Kâr Faktörü": pf,
+                "Doğrulama Başarı Oranı %": _num(test.get("Başarı Oranı %")),
+                "Doğrulama Maksimum Düşüş %": _num(test.get("Maksimum Düşüş %")),
+                "Doğrulama İşlem": count,
+                "Doğrulama Sharpe": _num(test.get("Sharpe")),
+                "Walk-Forward Puanı": _score(train, test),
+                "Durum": "Tamamlandı",
+                "Hata": "",
             })
-            continue
 
-        train = train_result.get("metrics", {})
-        test = test_result.get("metrics", {})
-        tr = _num(train.get("Toplam Getiri %"))
-        te = _num(test.get("Toplam Getiri %"))
-        pf = _num(test.get("Kâr Faktörü"))
-        count = int(_num(test.get("Toplam İşlem")))
-
+        aggregate = _aggregate_fold_rows(fold_rows)
         rows.append({
             "Test": test_no,
             "Minimum Giriş Puanı": entry,
             "Çıkış Puanı": exit_value,
             "Maksimum Bekleme": holding,
-            "Eğitim Getirisi %": tr,
-            "Doğrulama Getirisi %": te,
-            "Getiri Farkı": round(abs(tr - te), 2),
-            "Doğrulama Kâr Faktörü": pf,
-            "Doğrulama Başarı Oranı %": _num(test.get("Başarı Oranı %")),
-            "Doğrulama Maksimum Düşüş %": _num(test.get("Maksimum Düşüş %")),
-            "Doğrulama İşlem": count,
-            "Doğrulama Sharpe": _num(test.get("Sharpe")),
-            "Sağlamlık": _label(tr, te, pf, count),
-            "Walk-Forward Puanı": _score(train, test),
-            "Durum": "Tamamlandı",
-            "Hata": "",
+            **aggregate,
         })
 
     result = pd.DataFrame(rows)
     if result.empty:
         return result
-
     completed = result[result["Durum"] == "Tamamlandı"].copy()
     failed = result[result["Durum"] != "Tamamlandı"].copy()
-
     if not completed.empty:
         order = {"Güçlü": 4, "Orta": 3, "Sınırlı": 2, "Zayıf": 1, "Yetersiz Veri": 0}
         completed["_order"] = completed["Sağlamlık"].map(order).fillna(0)
         completed = completed.sort_values(
-            ["_order", "Walk-Forward Puanı", "Doğrulama Kâr Faktörü",
-             "Doğrulama Getirisi %", "Doğrulama Maksimum Düşüş %"],
-            ascending=[False, False, False, False, True],
+            ["_order", "Walk-Forward Puanı", "Pozitif Fold %", "Doğrulama Kâr Faktörü", "Doğrulama Getirisi %"],
+            ascending=[False, False, False, False, False],
         ).drop(columns=["_order"]).reset_index(drop=True)
         completed.insert(0, "Sıra", range(1, len(completed) + 1))
-
     return pd.concat([completed, failed], ignore_index=True)
 
 
 def best_walk_forward_profile(results: pd.DataFrame) -> dict[str, Any] | None:
     if results is None or results.empty:
         return None
-    valid = results[
-        (results["Durum"] == "Tamamlandı")
-        & results["Sağlamlık"].isin(["Güçlü", "Orta"])
-    ]
+    valid = results[(results["Durum"] == "Tamamlandı") & results["Sağlamlık"].isin(["Güçlü", "Orta"])]
     if valid.empty:
         valid = results[results["Durum"] == "Tamamlandı"]
     return None if valid.empty else valid.iloc[0].to_dict()
