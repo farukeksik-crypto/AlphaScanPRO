@@ -81,3 +81,9 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - Aynı pozisyona ait giriş ve çıkışlar bağlantı çizgisiyle eşleştirildi.
 - Hover açıklamalarına işlem nedeni, fiyat ve kâr/zarar bilgileri eklendi.
 - Seçili sembol için robot işlem özeti ve son 50 işlem tablosu eklendi.
+
+## Sprint 10.11C — Grafik Analiz Paneli
+- Açıklamalı 100 puanlık teknik analiz paneli eklendi.
+- Trend, RSI, MACD, ADX/yön, hacim, momentum ve destek/direnç ayrı gerekçelerle değerlendiriliyor.
+- NET AL / AL ADAY / İZLE / BEKLE kararı ve her puanın nedeni gösteriliyor.
+- Streamlit use_container_width uyarıları bu sayfada width='stretch' kullanımına geçirildi.

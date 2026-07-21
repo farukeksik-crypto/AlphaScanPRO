@@ -1,0 +1,9 @@
+AlphaScan PRO — Sprint 10.11C Grafik Analiz Paneli
+
+Bu klasörün İÇİNDEKİ dosyaları proje ana klasörüne kopyalayın.
+
+1) py -3.13 .\apply_sprint10_11c.py
+2) py -3.13 .\verify_sprint10_11c.py
+3) py -3.13 -m streamlit run app.py
+
+Ön koşul: Sprint 10.11B başarıyla uygulanmış olmalıdır.

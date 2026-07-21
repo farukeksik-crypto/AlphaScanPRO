@@ -325,6 +325,219 @@ def _build_figure(
     return figure
 
 
+
+def _safe_number(value: Any, default: float = 0.0) -> float:
+    try:
+        if value is None or pd.isna(value):
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _support_resistance(data: pd.DataFrame, lookback: int = 80) -> dict[str, float | None]:
+    recent = data.tail(max(20, lookback)).copy()
+    if recent.empty:
+        return {"support": None, "resistance": None, "distance_support_pct": None, "distance_resistance_pct": None}
+
+    close = _safe_number(recent["Close"].iloc[-1], 0.0)
+    lows = pd.to_numeric(recent["Low"], errors="coerce").dropna()
+    highs = pd.to_numeric(recent["High"], errors="coerce").dropna()
+    if lows.empty or highs.empty or close <= 0:
+        return {"support": None, "resistance": None, "distance_support_pct": None, "distance_resistance_pct": None}
+
+    below = lows[lows <= close]
+    above = highs[highs >= close]
+    support = float(below.quantile(0.15)) if not below.empty else float(lows.min())
+    resistance = float(above.quantile(0.85)) if not above.empty else float(highs.max())
+
+    return {
+        "support": support,
+        "resistance": resistance,
+        "distance_support_pct": ((close - support) / close * 100) if support > 0 else None,
+        "distance_resistance_pct": ((resistance - close) / close * 100) if resistance > 0 else None,
+    }
+
+
+def _build_analysis(data: pd.DataFrame) -> dict[str, Any]:
+    latest = data.iloc[-1]
+    previous = data.iloc[-2] if len(data) > 1 else latest
+
+    close = _safe_number(latest.get("Close"))
+    ema20 = _safe_number(latest.get("EMA20"))
+    ema50 = _safe_number(latest.get("EMA50"))
+    ema200 = _safe_number(latest.get("EMA200"))
+    rsi_value = _safe_number(latest.get("RSI"), 50.0)
+    macd_hist = _safe_number(latest.get("MACD_HIST"))
+    previous_macd_hist = _safe_number(previous.get("MACD_HIST"))
+    adx_value = _safe_number(latest.get("ADX"))
+    plus_di = _safe_number(latest.get("PLUS_DI"))
+    minus_di = _safe_number(latest.get("MINUS_DI"))
+    volume = _safe_number(latest.get("Volume"))
+    volume_ma = _safe_number(latest.get("VOLUME_MA20"))
+    levels = _support_resistance(data)
+
+    rows: list[dict[str, Any]] = []
+    score = 0
+
+    if ema20 > ema50 > ema200 and close > ema20:
+        trend_status, trend_points = "Güçlü pozitif", 25
+        trend_reason = "Fiyat EMA20 üzerinde; EMA20 > EMA50 > EMA200 sıralaması yükseliş trendini destekliyor."
+    elif close > ema50 and ema50 > ema200:
+        trend_status, trend_points = "Pozitif", 19
+        trend_reason = "Fiyat EMA50 üzerinde ve orta vadeli trend EMA200'e göre pozitif."
+    elif close < ema50 and ema50 < ema200:
+        trend_status, trend_points = "Negatif", 4
+        trend_reason = "Fiyat EMA50 altında ve EMA50, EMA200 altında; trend baskısı sürüyor."
+    else:
+        trend_status, trend_points = "Kararsız", 11
+        trend_reason = "EMA sıralaması net bir yön üretmiyor; fiyat geçiş bölgesinde."
+    score += trend_points
+    rows.append({"Bileşen": "Trend", "Durum": trend_status, "Puan": trend_points, "Azami": 25, "Neden": trend_reason})
+
+    if 48 <= rsi_value <= 65:
+        rsi_status, rsi_points = "Sağlıklı pozitif", 15
+        rsi_reason = f"RSI {rsi_value:.1f}; yükseliş momentumu var fakat aşırı alım bölgesinde değil."
+    elif 35 <= rsi_value < 48:
+        rsi_status, rsi_points = "Toparlanma bekleniyor", 8
+        rsi_reason = f"RSI {rsi_value:.1f}; zayıf momentum var, 48 üzeri toparlanma onayı aranmalı."
+    elif rsi_value > 70:
+        rsi_status, rsi_points = "Aşırı alım riski", 6
+        rsi_reason = f"RSI {rsi_value:.1f}; yükseliş güçlü olsa da geri çekilme riski artmış."
+    elif rsi_value < 30:
+        rsi_status, rsi_points = "Aşırı satım", 5
+        rsi_reason = f"RSI {rsi_value:.1f}; tepki ihtimali var ancak dönüş onayı henüz yok."
+    else:
+        rsi_status, rsi_points = "Nötr", 10
+        rsi_reason = f"RSI {rsi_value:.1f}; belirgin aşırı alım veya aşırı satım sinyali yok."
+    score += rsi_points
+    rows.append({"Bileşen": "RSI", "Durum": rsi_status, "Puan": rsi_points, "Azami": 15, "Neden": rsi_reason})
+
+    if macd_hist > 0 and macd_hist >= previous_macd_hist:
+        macd_status, macd_points = "Pozitif ve güçleniyor", 15
+        macd_reason = "MACD histogramı pozitif ve önceki muma göre güçleniyor."
+    elif macd_hist > 0:
+        macd_status, macd_points = "Pozitif fakat yavaşlıyor", 11
+        macd_reason = "MACD histogramı pozitif ancak ivme önceki muma göre zayıflamış."
+    elif macd_hist > previous_macd_hist:
+        macd_status, macd_points = "Negatiften toparlanıyor", 7
+        macd_reason = "MACD histogramı halen negatif fakat önceki muma göre toparlanıyor."
+    else:
+        macd_status, macd_points = "Negatif", 2
+        macd_reason = "MACD histogramı negatif ve momentum desteği üretmiyor."
+    score += macd_points
+    rows.append({"Bileşen": "MACD", "Durum": macd_status, "Puan": macd_points, "Azami": 15, "Neden": macd_reason})
+
+    if adx_value >= 25 and plus_di > minus_di:
+        adx_status, adx_points = "Güçlü yükseliş trendi", 15
+        adx_reason = f"ADX {adx_value:.1f} ve +DI, -DI üzerinde; trend güçlü ve yön pozitif."
+    elif adx_value >= 18 and plus_di > minus_di:
+        adx_status, adx_points = "Kabul edilebilir pozitif", 11
+        adx_reason = f"ADX {adx_value:.1f}; trend oluşuyor ve yön göstergeleri yükselişi destekliyor."
+    elif adx_value >= 25 and plus_di <= minus_di:
+        adx_status, adx_points = "Güçlü negatif trend", 3
+        adx_reason = f"ADX {adx_value:.1f} fakat -DI üstün; güçlü trend aşağı yönlü."
+    else:
+        adx_status, adx_points = "Zayıf trend", 6
+        adx_reason = f"ADX {adx_value:.1f}; yönlü hareketin gücü sınırlı."
+    score += adx_points
+    rows.append({"Bileşen": "ADX / Yön", "Durum": adx_status, "Puan": adx_points, "Azami": 15, "Neden": adx_reason})
+
+    volume_ratio = (volume / volume_ma) if volume_ma > 0 else 0.0
+    if volume_ratio >= 1.20:
+        volume_status, volume_points = "Güçlü onay", 15
+        volume_reason = f"Hacim, 20 dönem ortalamasının %{(volume_ratio - 1) * 100:.0f} üzerinde."
+    elif volume_ratio >= 0.85:
+        volume_status, volume_points = "Yeterli", 11
+        volume_reason = f"Hacim ortalamaya yakın; oran {volume_ratio:.2f}x."
+    else:
+        volume_status, volume_points = "Zayıf", 4
+        volume_reason = f"Hacim 20 dönem ortalamasının altında; oran {volume_ratio:.2f}x."
+    score += volume_points
+    rows.append({"Bileşen": "Hacim", "Durum": volume_status, "Puan": volume_points, "Azami": 15, "Neden": volume_reason})
+
+    support_distance = levels.get("distance_support_pct")
+    resistance_distance = levels.get("distance_resistance_pct")
+    if resistance_distance is not None and resistance_distance < 1.5:
+        level_status, level_points = "Dirence çok yakın", 5
+        level_reason = f"Tahmini direnç yalnızca %{resistance_distance:.2f} yukarıda; yeni girişte risk/getiri daralıyor."
+    elif support_distance is not None and support_distance < 2.0:
+        level_status, level_points = "Desteğe yakın", 15
+        level_reason = f"Tahmini destek %{support_distance:.2f} aşağıda; stop planı için yakın referans sağlıyor."
+    else:
+        level_status, level_points = "Orta bölgede", 10
+        level_reason = "Fiyat yakın destek ve direnç arasında; kırılım veya geri çekilme teyidi izlenmeli."
+    score += level_points
+    rows.append({"Bileşen": "Destek / Direnç", "Durum": level_status, "Puan": level_points, "Azami": 15, "Neden": level_reason})
+
+    momentum = 0.0
+    if len(data) >= 6:
+        base = _safe_number(data["Close"].iloc[-6])
+        momentum = ((close / base) - 1) * 100 if base > 0 else 0.0
+    if momentum > 2:
+        momentum_status, momentum_points = "Pozitif", 15
+        momentum_reason = f"Son 5 mum fiyat değişimi %{momentum:.2f}; kısa vadeli ivme pozitif."
+    elif momentum > 0:
+        momentum_status, momentum_points = "Hafif pozitif", 11
+        momentum_reason = f"Son 5 mum fiyat değişimi %{momentum:.2f}; ivme sınırlı pozitif."
+    elif momentum > -2:
+        momentum_status, momentum_points = "Yatay / zayıf", 7
+        momentum_reason = f"Son 5 mum fiyat değişimi %{momentum:.2f}; belirgin yön oluşmamış."
+    else:
+        momentum_status, momentum_points = "Negatif", 2
+        momentum_reason = f"Son 5 mum fiyat değişimi %{momentum:.2f}; kısa vadeli baskı negatif."
+    score += momentum_points
+    rows.append({"Bileşen": "Kısa Momentum", "Durum": momentum_status, "Puan": momentum_points, "Azami": 15, "Neden": momentum_reason})
+
+    score = int(max(0, min(100, score)))
+    if score >= 78:
+        decision = "NET AL"
+        summary = "Trend, momentum ve onay göstergeleri birlikte güçlü. Yine de destek/stop seviyesi belirlenmeden işlem açılmamalı."
+    elif score >= 64:
+        decision = "AL ADAY"
+        summary = "Olumlu bileşenler çoğunlukta. Giriş için kırılım, hacim veya mum kapanışı teyidi aranmalı."
+    elif score >= 48:
+        decision = "İZLE"
+        summary = "Olumlu ve olumsuz göstergeler karışık. Net yön oluşana kadar izleme daha uygun."
+    else:
+        decision = "BEKLE"
+        summary = "Trend veya momentum desteği yetersiz. Yeni giriş için teknik koşullar henüz uygun görünmüyor."
+
+    return {
+        "score": score,
+        "decision": decision,
+        "summary": summary,
+        "rows": rows,
+        "levels": levels,
+        "momentum_5": momentum,
+    }
+
+
+def _render_analysis_panel(data: pd.DataFrame) -> None:
+    analysis = _build_analysis(data)
+    levels = analysis["levels"]
+
+    st.subheader("🧠 Grafik Analiz Paneli")
+    a1, a2, a3, a4 = st.columns(4)
+    a1.metric("AlphaScan Teknik Puan", f"{analysis['score']}/100")
+    a2.metric("Teknik Karar", analysis["decision"])
+    a3.metric("Tahmini Destek", _format_value(levels.get("support"), 4))
+    a4.metric("Tahmini Direnç", _format_value(levels.get("resistance"), 4))
+
+    if analysis["decision"] in {"NET AL", "AL ADAY"}:
+        st.success(analysis["summary"])
+    elif analysis["decision"] == "İZLE":
+        st.warning(analysis["summary"])
+    else:
+        st.error(analysis["summary"])
+
+    details = pd.DataFrame(analysis["rows"])
+    st.dataframe(details, width="stretch", hide_index=True)
+    st.caption(
+        "Bu panel olasılık ve teknik koşul değerlendirmesidir; kesin getiri veya nedensellik iddiası değildir. "
+        "Her puanın gerekçesi tabloda açıkça gösterilir."
+    )
+
 def render_advanced_chart(data_engine, watchlists: dict | None = None, database=None) -> None:
     st.header("📊 Gelişmiş Grafik")
     st.caption(
@@ -367,7 +580,7 @@ def render_advanced_chart(data_engine, watchlists: dict | None = None, database=
     with top4:
         st.write("")
         st.write("")
-        force_refresh = st.button("🔄 Yenile", use_container_width=True)
+        force_refresh = st.button("🔄 Yenile", width="stretch")
 
     try:
         with st.spinner(f"{symbol} verisi hazırlanıyor..."):
@@ -404,7 +617,7 @@ def render_advanced_chart(data_engine, watchlists: dict | None = None, database=
 
     st.plotly_chart(
         _build_figure(chart_data, symbol, trades, positions),
-        use_container_width=True,
+        width="stretch",
         config={
             "displaylogo": False,
             "scrollZoom": True,
@@ -417,6 +630,8 @@ def render_advanced_chart(data_engine, watchlists: dict | None = None, database=
             st.json(signal)
         else:
             st.info("Son mum için teknik sinyal özeti üretilemedi.")
+
+    _render_analysis_panel(chart_data)
 
     if show_robot:
         open_count = 0 if positions.empty else int((positions["status"].astype(str).str.upper() == "OPEN").sum())
@@ -432,11 +647,11 @@ def render_advanced_chart(data_engine, watchlists: dict | None = None, database=
                 table = trades.sort_values("created_at", ascending=False).head(50).copy()
                 table = table[["created_at", "side", "price", "quantity", "profit", "profit_pct", "reason"]]
                 table.columns = ["Tarih", "İşlem", "Fiyat", "Miktar", "Kâr/Zarar", "Getiri %", "Neden"]
-                st.dataframe(table, use_container_width=True, hide_index=True)
+                st.dataframe(table, width="stretch", hide_index=True)
         else:
             st.caption("Seçili sembol için kayıtlı robot işlemi bulunamadı.")
 
     st.info(
-        "Sprint 10.11B: robot BUY/SELL işaretleri, açık pozisyon STOP/TP1/TP2 seviyeleri, "
-        "işlem bağlantıları ve açıklamalı hover bilgileri etkin."
+        "Sprint 10.11C: açıklamalı teknik puan, trend, RSI, MACD, ADX, hacim, momentum ve "
+        "destek/direnç değerlendirmeleri etkin. Robot işlem katmanı korunmuştur."
     )
