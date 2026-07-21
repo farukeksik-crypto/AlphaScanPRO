@@ -115,3 +115,10 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - Satış oranları başlangıç miktarı üzerinden hesaplanır.
 - Her fiyat güncellemesinde en fazla bir TP kademesi çalışır.
 - LONG/SHORT uyumu ve aşama günlüğü eklendi.
+
+## Sprint 10.12D - Smart Exit Decision
+- HOLD / TRAIL / PARTIAL_EXIT / FULL_EXIT karar katmanı eklendi.
+- RSI, MACD, EMA20, hacim ve ADX zayıflaması birlikte puanlanıyor.
+- Break-even, ATR trailing ve TP1 sonrası kâr koruma bağlamı skora katılıyor.
+- Eski Smart Exit API davranışı geriye dönük uyumlu tutuldu.
+

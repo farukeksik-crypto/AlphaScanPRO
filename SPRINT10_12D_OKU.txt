@@ -1,0 +1,27 @@
+ALPHASCAN PRO - SPRINT 10.12D SMART EXIT DECISION
+
+1) Bu klasördeki dört öğeyi proje ana klasörüne kopyalayın:
+   apply_sprint10_12d.py
+   verify_sprint10_12d.py
+   payload
+   SPRINT10_12D_OKU.txt
+
+2) PowerShell:
+   cd C:\Users\Faruk\AlphaScanPRO_Git_Temiz
+   py -3.13 .\apply_sprint10_12d.py
+   py -3.13 .\verify_sprint10_12d.py
+
+3) Beklenen sonuç:
+   SPRINT 10.12D DOĞRULAMA BAŞARILI
+
+4) Commit:
+   git add .
+   git commit -m "Sprint 10.12D smart exit decision engine"
+
+Karar katmanları:
+- HOLD: Pozisyonu taşı.
+- TRAIL: Satış yapma; stop/trailing korumasıyla izle.
+- PARTIAL_EXIT: Orta kuvvette bozulmada kısmi satış.
+- FULL_EXIT: Güçlü ve çoklu bozulmada tam kapanış.
+
+Not: Stop, break-even, ATR trailing ve hedef kontrollerinin mevcut önceliği korunur.

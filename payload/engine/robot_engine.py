@@ -6,7 +6,7 @@ from engine.sector_correlation_engine import SectorCorrelationEngine
 
 from engine.market_regime_engine import MarketRegimeEngine
 
-from engine.smart_exit import evaluate_smart_exit
+from engine.smart_exit import SmartExitConfig, SmartExitAction, evaluate_smart_exit
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -35,8 +35,11 @@ class RobotConfig:
 
     # Sprint 6.3F-C — Kademeli Smart Exit
     smart_exit_partial_enabled: bool = True
+    smart_exit_watch_score: int = 35
     smart_exit_partial_score: int = 50
     smart_exit_full_score: int = 70
+    smart_exit_min_confirmations: int = 2
+    smart_exit_full_min_confirmations: int = 3
     smart_exit_partial_sell_ratio: float = 0.50
 
     # Sprint 6.3F-A — Zaman bazlı çıkış
@@ -1720,13 +1723,24 @@ class RobotEngine:
                     volume_ratio=signal.get("volume_ratio"),
                     current_adx=signal.get("adx"),
                     previous_adx=signal.get("previous_adx"),
+                    break_even_active=break_even_active,
+                    trailing_active=trailing_active,
+                    partial_stage=1 if target1_completed else 0,
+                    config=SmartExitConfig(
+                        watch_score_threshold=self.config.smart_exit_watch_score,
+                        partial_exit_score_threshold=self.config.smart_exit_partial_score,
+                        full_exit_score_threshold=self.config.smart_exit_full_score,
+                        min_confirmations=self.config.smart_exit_min_confirmations,
+                        full_exit_min_confirmations=(
+                            self.config.smart_exit_full_min_confirmations
+                        ),
+                    ),
                 )
 
                 if smart_exit.should_exit:
                     reason_text = " | ".join(smart_exit.reasons)
                     strong_exit = (
-                        smart_exit.score
-                        >= self.config.smart_exit_full_score
+                        smart_exit.action == SmartExitAction.FULL_EXIT
                     )
                     can_partial = (
                         self.config.smart_exit_partial_enabled
