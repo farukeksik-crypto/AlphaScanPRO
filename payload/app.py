@@ -21,6 +21,7 @@ from ui.relative_strength_page import render_relative_strength
 from ui.money_flow_page import render_money_flow
 from ui.performance_analytics_page import render_performance_analytics
 from ui.robot_page import render_robot
+from ui.robot_intelligence_page import render_robot_intelligence
 from ui.robot_replay_page import render_robot_replay
 from ui.strategy_lab_page import render_strategy_lab
 from ui.glossary import render_page_glossary
@@ -67,6 +68,7 @@ page = st.sidebar.radio(
         "Geçmiş Strateji Testi",
         "Sanal İşlem Robotu",
         "Performans Analizi PRO",
+        "Robot Intelligence",
         "Robot İşlem Tekrarı",
         "Yapay Zekâ Öğrenme",
         "Arka Plan Platformu",
@@ -116,6 +118,9 @@ elif page == "Sanal İşlem Robotu":
 
 elif page == "Performans Analizi PRO":
     render_performance_analytics(database)
+
+elif page == "Robot Intelligence":
+    render_robot_intelligence(database)
 
 elif page == "Robot İşlem Tekrarı":
     render_robot_replay(database)

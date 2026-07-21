@@ -15,11 +15,6 @@ from typing import Any
 import pandas as pd
 
 from engine.trade_intelligence import analyze_closed_trade
-from engine.trade_journal_pro import (
-    TradeJournalProEvent,
-    ensure_trade_journal_pro,
-    record_trade_event,
-)
 
 
 @dataclass
@@ -128,10 +123,6 @@ class RobotEngine:
             correlation_limit=self.config.correlation_limit,
             min_observations=self.config.correlation_min_observations,
         )
-        with self.database.connect() as connection:
-            ensure_trade_journal_pro(connection)
-            connection.commit()
-
         self.ai_decision_engine = AIDecisionEngine(
             minimum_trade_score=self.config.ai_minimum_trade_score,
             strong_buy_score=self.config.ai_strong_buy_score,
@@ -182,43 +173,6 @@ class RobotEngine:
 
     def set_enabled(self, enabled: bool) -> None:
         with self.database.connect() as connection:
-            record_trade_event(
-                connection,
-                TradeJournalProEvent(
-                    position_id=position_id,
-                    account_id=self.account_id,
-                    market=str(market or self.market),
-                    symbol=str(symbol),
-                    event_type="FULL_EXIT",
-                    side="LONG",
-                    quantity=quantity,
-                    entry_price=entry_price,
-                    exit_price=exit_price,
-                    gross_pnl=(exit_price - entry_price) * quantity,
-                    commission=buy_commission + sell_commission,
-                    net_pnl=profit,
-                    entry_score=float(technical_score or 0),
-                    exit_score=float(exit_score or 0),
-                    exit_action=exit_action,
-                    exit_reason=exit_reason,
-                    confirmations=int(exit_confirmations or 0),
-                    break_even_active=bool(break_even_active),
-                    trailing_active=bool(trailing_active),
-                    tp_stage=int(target1_completed or 0),
-                    opened_at=str(opened_at or ""),
-                    closed_at=closed_at,
-                    holding_minutes=analytics.holding_minutes,
-                    mfe_pct=analytics.mfe_pct,
-                    mae_pct=analytics.mae_pct,
-                    metadata={
-                        "confidence_score": float(confidence_score or 0),
-                        "confidence_label": str(confidence_label or ""),
-                        "decision": str(decision or ""),
-                        "strategy_profile": str(strategy_profile or ""),
-                    },
-                ),
-            )
-
             connection.execute(
                 """
                 UPDATE robot_accounts
@@ -1164,10 +1118,6 @@ class RobotEngine:
         position_id: int,
         exit_price: float,
         exit_reason: str,
-        *,
-        exit_score: float = 0.0,
-        exit_action: str = "FULL_EXIT",
-        exit_confirmations: int = 0,
     ) -> dict[str, Any]:
         if exit_price <= 0:
             return {
@@ -1194,10 +1144,7 @@ class RobotEngine:
                     highest_price,
                     lowest_price,
                     stop_price,
-                    target2,
-                    COALESCE(break_even_active, 0),
-                    COALESCE(trailing_active, 0),
-                    COALESCE(target1_completed, 0)
+                    target2
                 FROM positions
                 WHERE id = ?
                   AND status = 'OPEN'
@@ -1229,9 +1176,6 @@ class RobotEngine:
                 lowest_price,
                 stop_price,
                 target2,
-                break_even_active,
-                trailing_active,
-                target1_completed,
             ) = row
 
             quantity = float(quantity)
@@ -1887,37 +1831,6 @@ class RobotEngine:
                                     ),
                                 ),
                             )
-                            record_trade_event(
-                                connection,
-                                TradeJournalProEvent(
-                                    position_id=position_id,
-                                    account_id=self.account_id,
-                                    market=self.market,
-                                    symbol=symbol,
-                                    event_type="PARTIAL_EXIT",
-                                    side="LONG",
-                                    quantity=sell_quantity,
-                                    entry_price=entry_price,
-                                    exit_price=current_price,
-                                    gross_pnl=(current_price - entry_price) * sell_quantity,
-                                    commission=commission,
-                                    net_pnl=realized_pnl,
-                                    entry_score=float(position.get("technical_score", 0) or 0),
-                                    exit_score=float(smart_exit.score),
-                                    exit_action="PARTIAL_EXIT",
-                                    exit_reason="AKILLI ÇIKIŞ KISMİ SATIŞ",
-                                    confirmations=int(smart_exit.confirmations),
-                                    break_even_active=bool(break_even_active),
-                                    trailing_active=bool(trailing_active),
-                                    tp_stage=1,
-                                    opened_at=str(position.get("opened_at", "")),
-                                    closed_at=self._now(),
-                                    metadata={
-                                        "remaining_quantity": remaining_quantity,
-                                        "reasons": list(smart_exit.reasons),
-                                    },
-                                ),
-                            )
                             connection.commit()
 
                         actions.append(
@@ -1972,9 +1885,6 @@ class RobotEngine:
                                 position_id,
                                 current_price,
                                 "AKILLI ÇIKIŞ TAM",
-                                exit_score=smart_exit.score,
-                                exit_action="FULL_EXIT",
-                                exit_confirmations=smart_exit.confirmations,
                             )
                         )
 
