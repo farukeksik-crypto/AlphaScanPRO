@@ -1,0 +1,11 @@
+AlphaScan PRO — Sprint 10.11D
+
+1) Bu klasörün içindeki apply_sprint10_11d.py, verify_sprint10_11d.py, payload ve bu metin dosyasını proje ana klasörüne kopyalayın.
+2) PowerShell:
+   py -3.13 .\apply_sprint10_11d.py
+   py -3.13 .\verify_sprint10_11d.py
+3) Başarılıysa:
+   py -3.13 -m streamlit run app.py
+
+Bu sprint için Sprint 10.11C ön koşuldur.
+Çizim araçları Plotly grafik araç çubuğunda görünür. Gösterge tercihleri Streamlit oturumu boyunca saklanır; çizimler sayfa yenilenirse tarayıcı tarafından sıfırlanabilir.

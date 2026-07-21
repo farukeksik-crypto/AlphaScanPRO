@@ -87,3 +87,11 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - Trend, RSI, MACD, ADX/yön, hacim, momentum ve destek/direnç ayrı gerekçelerle değerlendiriliyor.
 - NET AL / AL ADAY / İZLE / BEKLE kararı ve her puanın nedeni gösteriliyor.
 - Streamlit use_container_width uyarıları bu sayfada width='stretch' kullanımına geçirildi.
+
+## Sprint 10.11D — Göstergeler ve Çizim Araçları
+- EMA20, EMA50 ve EMA200 ayrı ayrı açılıp kapatılabilir hale getirildi.
+- Bollinger Bands ve otomatik destek/direnç katmanları eklendi.
+- Hacim, RSI, MACD, ADX/+DI/-DI ve ATR için seçilebilir alt paneller eklendi.
+- Trend çizgisi, serbest çizgi, dikdörtgen, daire ve şekil silme araçları etkinleştirildi.
+- Temel görünüm ve analiz görünümü hazır ayarları ile oturum içi gösterge tercihleri eklendi.
+- Robot işlem katmanı ve açıklamalı 10.11C analiz paneli korundu.

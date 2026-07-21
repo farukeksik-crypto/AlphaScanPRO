@@ -235,93 +235,142 @@ def _add_robot_overlays(
                 )
 
 
+def _ensure_extra_indicators(data: pd.DataFrame) -> pd.DataFrame:
+    result = data.copy()
+    close = pd.to_numeric(result["Close"], errors="coerce")
+    high = pd.to_numeric(result["High"], errors="coerce")
+    low = pd.to_numeric(result["Low"], errors="coerce")
+
+    middle = close.rolling(20, min_periods=20).mean()
+    deviation = close.rolling(20, min_periods=20).std(ddof=0)
+    result["BB_MIDDLE"] = middle
+    result["BB_UPPER"] = middle + (2 * deviation)
+    result["BB_LOWER"] = middle - (2 * deviation)
+
+    previous_close = close.shift(1)
+    true_range = pd.concat(
+        [(high - low).abs(), (high - previous_close).abs(), (low - previous_close).abs()],
+        axis=1,
+    ).max(axis=1)
+    result["ATR14_PANEL"] = true_range.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
+    return result
+
+
 def _build_figure(
     data: pd.DataFrame,
     symbol: str,
     trades: pd.DataFrame | None = None,
     positions: pd.DataFrame | None = None,
+    options: dict[str, bool] | None = None,
 ) -> go.Figure:
-    visible = data.tail(500).copy()
+    options = options or {}
+    visible = _ensure_extra_indicators(data.tail(500).copy())
+
+    panel_names: list[str] = ["price"]
+    if options.get("show_volume", True):
+        panel_names.append("volume")
+    if options.get("show_rsi", False):
+        panel_names.append("rsi")
+    if options.get("show_macd", False):
+        panel_names.append("macd")
+    if options.get("show_adx", False):
+        panel_names.append("adx")
+    if options.get("show_atr", False):
+        panel_names.append("atr")
+
+    row_map = {name: index + 1 for index, name in enumerate(panel_names)}
+    secondary_heights = {"volume": 0.18, "rsi": 0.16, "macd": 0.18, "adx": 0.16, "atr": 0.14}
+    used = sum(secondary_heights.get(name, 0) for name in panel_names[1:])
+    price_height = max(0.42, 1.0 - used)
+    row_heights = [price_height] + [secondary_heights[name] for name in panel_names[1:]]
 
     figure = make_subplots(
-        rows=2,
+        rows=len(panel_names),
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.03,
-        row_heights=[0.78, 0.22],
+        vertical_spacing=0.025,
+        row_heights=row_heights,
     )
 
     figure.add_trace(
         go.Candlestick(
-            x=visible.index,
-            open=visible["Open"],
-            high=visible["High"],
-            low=visible["Low"],
-            close=visible["Close"],
-            name=symbol,
-        ),
-        row=1,
-        col=1,
+            x=visible.index, open=visible["Open"], high=visible["High"],
+            low=visible["Low"], close=visible["Close"], name=symbol,
+        ), row=row_map["price"], col=1,
     )
 
-    for column, label in (
-        ("EMA20", "EMA 20"),
-        ("EMA50", "EMA 50"),
-        ("EMA200", "EMA 200"),
-    ):
-        if column in visible.columns:
+    ema_flags = (("EMA20", "EMA 20", "show_ema20"), ("EMA50", "EMA 50", "show_ema50"), ("EMA200", "EMA 200", "show_ema200"))
+    for column, label, option_name in ema_flags:
+        if options.get(option_name, True) and column in visible.columns:
             figure.add_trace(
-                go.Scatter(
-                    x=visible.index,
-                    y=visible[column],
-                    mode="lines",
-                    name=label,
-                    line={"width": 1.4},
-                ),
-                row=1,
-                col=1,
+                go.Scatter(x=visible.index, y=visible[column], mode="lines", name=label, line={"width": 1.4}),
+                row=row_map["price"], col=1,
             )
 
-    figure.add_trace(
-        go.Bar(
-            x=visible.index,
-            y=visible["Volume"],
-            name="Hacim",
-            opacity=0.65,
-        ),
-        row=2,
-        col=1,
-    )
+    if options.get("show_bollinger", False):
+        figure.add_trace(go.Scatter(x=visible.index, y=visible["BB_UPPER"], mode="lines", name="BB Üst", line={"width": 1, "dash": "dot"}), row=row_map["price"], col=1)
+        figure.add_trace(go.Scatter(x=visible.index, y=visible["BB_MIDDLE"], mode="lines", name="BB Orta", line={"width": 1}), row=row_map["price"], col=1)
+        figure.add_trace(go.Scatter(x=visible.index, y=visible["BB_LOWER"], mode="lines", name="BB Alt", line={"width": 1, "dash": "dot"}, fill="tonexty", fillcolor="rgba(128,128,128,0.08)"), row=row_map["price"], col=1)
 
-    if "VOLUME_MA20" in visible.columns:
-        figure.add_trace(
-            go.Scatter(
-                x=visible.index,
-                y=visible["VOLUME_MA20"],
-                mode="lines",
-                name="Hacim Ort. 20",
-                line={"width": 1.2},
-            ),
-            row=2,
-            col=1,
-        )
+    if "volume" in row_map:
+        row = row_map["volume"]
+        figure.add_trace(go.Bar(x=visible.index, y=visible["Volume"], name="Hacim", opacity=0.65), row=row, col=1)
+        if "VOLUME_MA20" in visible.columns:
+            figure.add_trace(go.Scatter(x=visible.index, y=visible["VOLUME_MA20"], mode="lines", name="Hacim Ort. 20", line={"width": 1.2}), row=row, col=1)
+        figure.update_yaxes(title_text="Hacim", row=row, col=1)
+
+    if "rsi" in row_map:
+        row = row_map["rsi"]
+        figure.add_trace(go.Scatter(x=visible.index, y=visible.get("RSI"), mode="lines", name="RSI 14", line={"width": 1.3}), row=row, col=1)
+        figure.add_hline(y=70, line_dash="dot", line_width=1, row=row, col=1)
+        figure.add_hline(y=30, line_dash="dot", line_width=1, row=row, col=1)
+        figure.update_yaxes(title_text="RSI", range=[0, 100], row=row, col=1)
+
+    if "macd" in row_map:
+        row = row_map["macd"]
+        if "MACD" in visible.columns:
+            figure.add_trace(go.Scatter(x=visible.index, y=visible["MACD"], mode="lines", name="MACD", line={"width": 1.2}), row=row, col=1)
+        if "MACD_SIGNAL" in visible.columns:
+            figure.add_trace(go.Scatter(x=visible.index, y=visible["MACD_SIGNAL"], mode="lines", name="MACD Sinyal", line={"width": 1.2}), row=row, col=1)
+        if "MACD_HIST" in visible.columns:
+            figure.add_trace(go.Bar(x=visible.index, y=visible["MACD_HIST"], name="MACD Hist", opacity=0.6), row=row, col=1)
+        figure.update_yaxes(title_text="MACD", row=row, col=1)
+
+    if "adx" in row_map:
+        row = row_map["adx"]
+        for column, label in (("ADX", "ADX"), ("PLUS_DI", "+DI"), ("MINUS_DI", "-DI")):
+            if column in visible.columns:
+                figure.add_trace(go.Scatter(x=visible.index, y=visible[column], mode="lines", name=label, line={"width": 1.2}), row=row, col=1)
+        figure.add_hline(y=18, line_dash="dot", line_width=1, row=row, col=1)
+        figure.update_yaxes(title_text="ADX / DI", row=row, col=1)
+
+    if "atr" in row_map:
+        row = row_map["atr"]
+        atr_column = "ATR" if "ATR" in visible.columns else "ATR14_PANEL"
+        figure.add_trace(go.Scatter(x=visible.index, y=visible[atr_column], mode="lines", name="ATR 14", line={"width": 1.2}), row=row, col=1)
+        figure.update_yaxes(title_text="ATR", row=row, col=1)
+
+    if options.get("show_support_resistance", True):
+        levels = _support_resistance(visible)
+        for label, key, dash in (("Destek", "support", "dash"), ("Direnç", "resistance", "dot")):
+            value = levels.get(key)
+            if value is not None:
+                figure.add_hline(y=float(value), line_dash=dash, line_width=1.1, annotation_text=f"{label} {float(value):,.4f}", annotation_position="top right", row=row_map["price"], col=1)
 
     figure.update_layout(
-        height=760,
+        height=max(760, 520 + (len(panel_names) - 1) * 150),
         margin={"l": 10, "r": 10, "t": 45, "b": 10},
         title=f"{symbol} • AlphaScan Gelişmiş Grafik",
-        xaxis_rangeslider_visible=False,
-        hovermode="x unified",
-        legend={"orientation": "h", "y": 1.02, "x": 0},
-        template="plotly_dark",
+        xaxis_rangeslider_visible=False, hovermode="x unified",
+        legend={"orientation": "h", "y": 1.02, "x": 0}, template="plotly_dark",
+        dragmode="pan",
+        newshape={"line": {"width": 2}, "fillcolor": "rgba(128,128,128,0.12)", "opacity": 0.8},
+        modebar_add=["drawline", "drawopenpath", "drawrect", "drawcircle", "eraseshape"],
     )
     _add_robot_overlays(figure, trades if trades is not None else pd.DataFrame(), positions if positions is not None else pd.DataFrame())
-
-    figure.update_yaxes(title_text="Fiyat", row=1, col=1)
-    figure.update_yaxes(title_text="Hacim", row=2, col=1)
+    figure.update_yaxes(title_text="Fiyat", row=row_map["price"], col=1)
     figure.update_xaxes(showspikes=True, spikemode="across", spikesnap="cursor")
     figure.update_yaxes(showspikes=True, spikemode="across", spikesnap="cursor")
-
     return figure
 
 
@@ -538,6 +587,48 @@ def _render_analysis_panel(data: pd.DataFrame) -> None:
         "Her puanın gerekçesi tabloda açıkça gösterilir."
     )
 
+def _render_indicator_controls() -> dict[str, bool]:
+    defaults = {
+        "show_ema20": True, "show_ema50": True, "show_ema200": True,
+        "show_bollinger": False, "show_volume": True, "show_rsi": False,
+        "show_macd": False, "show_adx": False, "show_atr": False,
+        "show_support_resistance": True,
+    }
+    for key, value in defaults.items():
+        st.session_state.setdefault(f"chart_{key}", value)
+
+    with st.expander("⚙️ Gösterge ve çizim ayarları", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.checkbox("EMA 20", key="chart_show_ema20")
+            st.checkbox("EMA 50", key="chart_show_ema50")
+            st.checkbox("EMA 200", key="chart_show_ema200")
+            st.checkbox("Bollinger Bands", key="chart_show_bollinger")
+        with c2:
+            st.checkbox("Hacim", key="chart_show_volume")
+            st.checkbox("RSI alt paneli", key="chart_show_rsi")
+            st.checkbox("MACD alt paneli", key="chart_show_macd")
+        with c3:
+            st.checkbox("ADX / DI alt paneli", key="chart_show_adx")
+            st.checkbox("ATR alt paneli", key="chart_show_atr")
+            st.checkbox("Otomatik destek / direnç", key="chart_show_support_resistance")
+
+        b1, b2 = st.columns(2)
+        if b1.button("Temel görünüm", width="stretch"):
+            for key, value in defaults.items():
+                st.session_state[f"chart_{key}"] = value
+            st.rerun()
+        if b2.button("Analiz görünümü", width="stretch"):
+            analysis_values = defaults | {"show_bollinger": True, "show_rsi": True, "show_macd": True, "show_adx": True, "show_atr": True}
+            for key, value in analysis_values.items():
+                st.session_state[f"chart_{key}"] = value
+            st.rerun()
+
+        st.caption("Çizim araçları grafik araç çubuğundadır: trend çizgisi, serbest çizgi, dikdörtgen, daire ve silgi. Gösterge seçimleri oturum boyunca saklanır.")
+
+    return {key: bool(st.session_state[f"chart_{key}"]) for key in defaults}
+
+
 def render_advanced_chart(data_engine, watchlists: dict | None = None, database=None) -> None:
     st.header("📊 Gelişmiş Grafik")
     st.caption(
@@ -612,15 +703,18 @@ def render_advanced_chart(data_engine, watchlists: dict | None = None, database=
     metric5.metric("RSI", _format_value(latest.get("rsi"), 1))
     metric6.metric("ADX", _format_value(latest.get("adx"), 1))
 
+    indicator_options = _render_indicator_controls()
     show_robot = st.checkbox("Robot işlemlerini grafikte göster", value=True)
     trades, positions = _load_robot_overlay(database, market, symbol) if show_robot else (pd.DataFrame(), pd.DataFrame())
 
     st.plotly_chart(
-        _build_figure(chart_data, symbol, trades, positions),
+        _build_figure(chart_data, symbol, trades, positions, indicator_options),
         width="stretch",
         config={
             "displaylogo": False,
             "scrollZoom": True,
+            "editable": True,
+            "edits": {"shapePosition": True},
             "modeBarButtonsToRemove": ["lasso2d", "select2d"],
         },
     )
@@ -652,6 +746,6 @@ def render_advanced_chart(data_engine, watchlists: dict | None = None, database=
             st.caption("Seçili sembol için kayıtlı robot işlemi bulunamadı.")
 
     st.info(
-        "Sprint 10.11C: açıklamalı teknik puan, trend, RSI, MACD, ADX, hacim, momentum ve "
-        "destek/direnç değerlendirmeleri etkin. Robot işlem katmanı korunmuştur."
+        "Sprint 10.11D: seçilebilir EMA, Bollinger, hacim, RSI, MACD, ADX/DI ve ATR panelleri ile "
+        "Plotly çizim araçları etkin. Robot işlem ve açıklamalı analiz katmanları korunmuştur."
     )
