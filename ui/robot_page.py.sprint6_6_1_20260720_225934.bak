@@ -1,0 +1,727 @@
+from __future__ import annotations
+
+import pandas as pd
+import streamlit as st
+
+from database.background_repository import latest_results_by_source
+from database.robot_settings_repository import load_robot_settings, save_robot_settings
+from engine.robot_engine import RobotConfig, RobotEngine
+from engine.market_accounts import MARKET_ACCOUNTS, account_for_market, normalize_market
+
+
+def _format_money(value: float, currency: str = "TRY") -> str:
+    suffix = {"TRY": "TL", "USDT": "USDT", "USD": "USD"}.get(currency, currency)
+    return f"{float(value):,.2f} {suffix}"
+
+
+def _render_action_messages(actions: list[dict]):
+    if not actions:
+        st.info("Robot herhangi bir işlem oluşturmadı.")
+        return
+
+    for action in actions:
+        message = str(action.get("message", "İşlem tamamlandı."))
+        if action.get("ok"):
+            st.success(message)
+        else:
+            st.warning(message)
+
+
+
+def _safe_robot_metric(robot, method_name: str, default):
+    """Risk panelinde eksik motor metodları yüzünden ekranın çökmesini önler."""
+    method = getattr(robot, method_name, None)
+    if not callable(method):
+        return default
+    try:
+        return method()
+    except Exception:
+        return default
+
+def _format_duration(minutes: float | int | None) -> str:
+    value = float(minutes or 0)
+    if value < 60:
+        return f"{value:.0f} dk"
+    hours = value / 60
+    if hours < 24:
+        return f"{hours:.1f} saat"
+    return f"{hours / 24:.1f} gün"
+
+
+def _render_trade_intelligence_summary(history: pd.DataFrame) -> None:
+    closed = history[
+        history["side"].astype(str).str.upper() == "SELL"
+    ].copy()
+
+    if closed.empty:
+        return
+
+    quality = pd.to_numeric(closed["trade_quality_score"], errors="coerce")
+    profit_pct = pd.to_numeric(closed["profit_pct"], errors="coerce")
+    rr = pd.to_numeric(closed["risk_reward"], errors="coerce")
+    holding = pd.to_numeric(closed["holding_minutes"], errors="coerce")
+
+    st.subheader("Trade Intelligence Özeti")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Analiz Edilen İşlem", int(quality.notna().sum()))
+    c2.metric(
+        "Ortalama Kalite",
+        f"{quality.dropna().mean():.1f}/100" if quality.notna().any() else "—",
+    )
+    c3.metric(
+        "Ortalama Kâr",
+        f"%{profit_pct.dropna().mean():+.2f}" if profit_pct.notna().any() else "—",
+    )
+    c4.metric(
+        "Ortalama R/R",
+        f"{rr.dropna().mean():.2f}" if rr.notna().any() else "—",
+    )
+
+    d1, d2, d3 = st.columns(3)
+    grades = closed["trade_grade"].fillna("").astype(str)
+    d1.metric("A Sınıfı İşlem", int(grades.isin(["A+", "A"]).sum()))
+    d2.metric("Kazanan İşlem", int((profit_pct > 0).sum()))
+    d3.metric(
+        "Ortalama Süre",
+        _format_duration(holding.dropna().mean()) if holding.notna().any() else "—",
+    )
+
+    grade_order = ["A+", "A", "B", "C", "D"]
+    grade_counts = (
+        grades[grades != ""]
+        .value_counts()
+        .reindex(grade_order, fill_value=0)
+        .rename_axis("İşlem Notu")
+        .reset_index(name="İşlem Sayısı")
+    )
+    if not grade_counts.empty:
+        st.caption("İşlem kalitesi dağılımı")
+        st.bar_chart(grade_counts, x="İşlem Notu", y="İşlem Sayısı")
+
+
+def _get_available_scanner_sources(database) -> dict[str, list[dict]]:
+    # Birincil kaynak SQLite: background_worker sonuçlarıdır.
+    sources = latest_results_by_source(database)
+
+    # Worker henüz hiç çalışmadıysa, geçici geri dönüş olarak bu oturumdaki
+    # manuel tarama sonuçlarını gösterir.
+    if sources:
+        return sources
+
+    fallback: dict[str, list[dict]] = {}
+    bist_results = st.session_state.get("s2_bist_results", [])
+    if bist_results:
+        universe = st.session_state.get("selected_bist_universe", "Son BIST taraması")
+        fallback[f"BIST — {universe} (Oturum)"] = bist_results
+    crypto_results = st.session_state.get("s2_crypto_results", [])
+    if crypto_results:
+        group = st.session_state.get("selected_crypto_group", "Son kripto taraması")
+        fallback[f"Kripto — {group} (Oturum)"] = crypto_results
+    commodity_results = st.session_state.get("s2_commodity_results", [])
+    if commodity_results:
+        fallback["Emtia — Son tarama (Oturum)"] = commodity_results
+    return fallback
+
+
+def _parse_source(source: str) -> tuple[str, str]:
+    if " — " not in source:
+        return source, ""
+
+    market, universe = source.split(" — ", 1)
+    return market.strip().upper().replace("KRIPTO", "KRIPTO"), universe.replace("(SQLite)", "").replace("(Oturum)", "").strip()
+
+
+def _filter_robot_candidates(
+    rows: list[dict],
+    minimum_score: float,
+    minimum_confidence: float,
+    minimum_probability: float,
+    allowed_risks: tuple[str, ...],
+    allowed_decisions: tuple[str, ...],
+) -> list[dict]:
+    filtered: list[dict] = []
+
+    for row in rows:
+        decision = str(row.get("Karar", ""))
+        score = float(row.get("Puan", 0) or 0)
+        confidence = float(row.get("Güven", 0) or 0)
+        probability = float(
+            row.get("Başarı Göstergesi %", 0) or 0
+        )
+        risk_level = str(row.get("Risk", "")).strip()
+
+        if decision not in allowed_decisions:
+            continue
+        if score < minimum_score:
+            continue
+        if confidence < minimum_confidence:
+            continue
+        if probability < minimum_probability:
+            continue
+        if allowed_risks and risk_level not in allowed_risks:
+            continue
+
+        filtered.append(row)
+
+    return sorted(
+        filtered,
+        key=lambda item: (
+            float(item.get("Başarı Göstergesi %", 0) or 0),
+            float(item.get("Güven", 0) or 0),
+            float(item.get("Puan", 0) or 0),
+        ),
+        reverse=True,
+    )
+
+
+def render_robot(database):
+    st.title("🤖 Sanal İşlem Robotu")
+
+    selected_market_label = st.radio(
+        "Sanal hesap", ["BIST", "KRIPTO", "EMTIA"], horizontal=True,
+        format_func=lambda x: MARKET_ACCOUNTS[x]["label"],
+    )
+    selected_account = account_for_market(selected_market_label)
+    saved_settings = load_robot_settings(
+        database,
+        account_id=selected_account["account_id"],
+        market=selected_market_label,
+    )
+
+    st.warning(
+        "Bu robot yalnızca sanal işlem yapar. Gerçek emir göndermez. "
+        "Birincil sinyal kaynağı Background Worker tarafından SQLite'a kaydedilen son taramalardır."
+    )
+
+    with st.expander("Robot Ayarları", expanded=True):
+        a1, a2, a3, a4, a5 = st.columns(5)
+
+        minimum_score = a1.slider(
+            "Minimum teknik puan",
+            min_value=50,
+            max_value=100,
+            value=int(saved_settings["minimum_score"]),
+        )
+        minimum_confidence = a2.slider(
+            "Minimum güven puanı",
+            min_value=0,
+            max_value=100,
+            value=int(saved_settings["minimum_confidence"]),
+        )
+        minimum_probability = a3.slider(
+            "Minimum başarı göstergesi",
+            min_value=0,
+            max_value=100,
+            value=int(saved_settings["minimum_probability"]),
+        )
+        max_positions = a4.slider(
+            "Maksimum açık pozisyon",
+            min_value=1,
+            max_value=10,
+            value=int(saved_settings["max_positions"]),
+        )
+        position_size_pct = a5.slider(
+            "Pozisyon başına bakiye (%)",
+            min_value=5,
+            max_value=30,
+            value=int(float(saved_settings["position_size_pct"]) * 100),
+            step=5,
+        )
+
+        allowed_decisions_list = st.multiselect(
+            "İşlem açılabilecek kararlar",
+            ["NET AL", "AL ADAY"],
+            default=list(saved_settings["allowed_decisions"]),
+        )
+
+        allowed_risk_list = st.multiselect(
+            "İşlem açılabilecek risk seviyeleri",
+            ["Düşük", "Orta", "Yüksek"],
+            default=list(saved_settings["allowed_risks"]),
+        )
+
+        strategy_profile = st.text_input(
+            "Strateji profili",
+            value=str(saved_settings["strategy_profile"]),
+        )
+
+        if not allowed_decisions_list:
+            allowed_decisions_list = ["NET AL"]
+
+        if st.button("Ayarları Worker İçin Kaydet", use_container_width=True):
+            save_robot_settings(
+                database,
+                account_id=selected_account["account_id"],
+                market=selected_market_label,
+                minimum_score=float(minimum_score),
+                minimum_confidence=float(minimum_confidence),
+                minimum_probability=float(minimum_probability),
+                max_positions=int(max_positions),
+                position_size_pct=float(position_size_pct) / 100,
+                allowed_decisions=allowed_decisions_list,
+                allowed_risks=allowed_risk_list,
+                strategy_profile=strategy_profile,
+            )
+            st.success(
+                f"{selected_market_label} robot ayarları SQLite'a kaydedildi. "
+                "Worker sonraki döngüde bu ayarları kullanacak."
+            )
+
+    config = RobotConfig(
+        starting_balance=float(selected_account["starting_balance"]),
+        commission_rate=0.001,
+        max_positions=int(max_positions),
+        position_size_pct=float(position_size_pct) / 100,
+        minimum_score=float(minimum_score),
+        minimum_confidence=float(minimum_confidence),
+        minimum_probability=float(minimum_probability),
+        allowed_decisions=tuple(allowed_decisions_list),
+        allowed_risks=tuple(allowed_risk_list),
+        strategy_profile=strategy_profile.strip() or "Default",
+        market=selected_market_label,
+        account_id=selected_account["account_id"],
+        currency=selected_account["currency"],
+    )
+
+    robot = RobotEngine(database=database, config=config)
+
+    state = robot.get_state()
+    positions = robot.get_open_positions()
+
+    robot_status = "Aktif" if state["enabled"] else "Kapalı"
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Robot", robot_status)
+    c2.metric("Nakit Bakiye", _format_money(state["balance"], state["currency"]))
+    c3.metric("Günlük K/Z", _format_money(state["daily_profit"], state["currency"]))
+    c4.metric("Toplam K/Z", _format_money(state["total_profit"], state["currency"]))
+    c5.metric("Açık Pozisyon", len(positions))
+
+    st.caption(
+        "Son güncelleme: "
+        + str(state.get("updated_at") or "Henüz güncelleme yok")
+    )
+
+    today_trade_count = int(_safe_robot_metric(robot, "get_today_trade_count", 0) or 0)
+    today_realized_profit = float(_safe_robot_metric(robot, "get_today_realized_profit", 0.0) or 0.0)
+    today_commission = float(_safe_robot_metric(robot, "get_today_commission", 0.0) or 0.0)
+    consecutive_losses = int(_safe_robot_metric(robot, "get_consecutive_losses", 0) or 0)
+    risk_lock_reason = str(_safe_robot_metric(robot, "risk_lock_reason", "") or "")
+
+    max_daily_trades = int(getattr(config, "max_daily_trades", 0) or 0)
+    max_consecutive_losses = int(getattr(config, "max_consecutive_losses", 0) or 0)
+    max_daily_loss_pct = float(getattr(config, "max_daily_loss_pct", 0.0) or 0.0)
+    max_daily_commission_pct = float(getattr(config, "max_daily_commission_pct", 0.0) or 0.0)
+    risk_per_trade_pct = float(getattr(config, "risk_per_trade_pct", 0.0) or 0.0)
+
+    remaining_trades = max(max_daily_trades - today_trade_count, 0) if max_daily_trades > 0 else 0
+    risk_status = "🔴 KİLİTLİ" if risk_lock_reason else "🟢 AKTİF"
+
+    st.subheader("🛡 Risk Manager")
+    r1, r2, r3, r4, r5, r6 = st.columns(6)
+    r1.metric("Risk Durumu", risk_status)
+    r2.metric(
+        "Bugünkü İşlem",
+        f"{today_trade_count} / {max_daily_trades}" if max_daily_trades > 0 else str(today_trade_count),
+        delta=f"{remaining_trades} işlem hakkı" if max_daily_trades > 0 else None,
+    )
+    r3.metric("Gerçekleşmiş K/Z", _format_money(today_realized_profit, state["currency"]))
+    r4.metric("Günlük Komisyon", _format_money(today_commission, state["currency"]))
+    r5.metric(
+        "Arka Arkaya Zarar",
+        f"{consecutive_losses} / {max_consecutive_losses}" if max_consecutive_losses > 0 else str(consecutive_losses),
+    )
+    r6.metric("İşlem Riski", f"%{risk_per_trade_pct:.2f}")
+
+    if risk_lock_reason:
+        st.error("Yeni alımlar Risk Manager tarafından durduruldu: " + risk_lock_reason)
+    else:
+        st.success("Risk limitleri uygun. Yeni alımlar için risk kilidi bulunmuyor.")
+
+    st.caption(
+        f"Günlük zarar limiti: %{max_daily_loss_pct:.2f} · "
+        f"Günlük komisyon limiti: %{max_daily_commission_pct:.2f} · "
+        "Risk kilidi açık pozisyonların çıkış yönetimini engellemez."
+    )
+
+    st.divider()
+    st.subheader("Robot Kontrolü")
+
+    control1, control2, control3 = st.columns(3)
+
+    if state["enabled"]:
+        if control1.button(
+            "Robotu Kapat",
+            type="primary",
+            use_container_width=True,
+        ):
+            robot.set_enabled(False)
+            st.success("Sanal işlem robotu kapatıldı.")
+            st.rerun()
+    else:
+        if control1.button(
+            "Robotu Aç",
+            type="primary",
+            use_container_width=True,
+        ):
+            robot.set_enabled(True)
+            st.success("Sanal işlem robotu açıldı. Worker'ın yeni taramasında otomatik çalışacaktır.")
+            st.rerun()
+
+    scanner_sources = _get_available_scanner_sources(database)
+    scanner_sources = {
+        source: rows for source, rows in scanner_sources.items()
+        if normalize_market(_parse_source(source)[0]) == selected_market_label
+    }
+
+    if scanner_sources:
+        selected_source = control2.selectbox(
+            "Tarama kaynağı",
+            list(scanner_sources),
+        )
+        scanner_results = scanner_sources[selected_source]
+        selected_market, selected_universe = _parse_source(selected_source)
+        scanner_results = [row for row in scanner_results if normalize_market(selected_market) == selected_market_label]
+    else:
+        selected_source = "Tarama yok"
+        scanner_results = []
+        selected_market = ""
+        selected_universe = ""
+
+    if scanner_sources:
+        sqlite_source = any("(SQLite)" in source for source in scanner_sources)
+        if sqlite_source:
+            st.success("Robot kaynağı: SQLite / Background Worker. Tarama ekranlarını açman gerekmez.")
+        else:
+            st.warning("Henüz SQLite arka plan taraması yok; geçici olarak açık oturum sonuçları kullanılıyor.")
+    else:
+        st.warning("Kayıtlı tarama bulunamadı. Background Worker'ı çalıştırın.")
+
+    filtered_candidates = _filter_robot_candidates(
+        rows=scanner_results,
+        minimum_score=float(minimum_score),
+        minimum_confidence=float(minimum_confidence),
+        minimum_probability=float(minimum_probability),
+        allowed_risks=tuple(allowed_risk_list),
+        allowed_decisions=tuple(allowed_decisions_list),
+    )
+
+    control2.metric("Uygun aday", len(filtered_candidates))
+
+    if control2.button(
+        "Son SQLite Taramasını Şimdi İşle",
+        disabled=not state["enabled"] or not filtered_candidates,
+        use_container_width=True,
+    ):
+        actions = robot.process_scanner_results(
+            filtered_candidates,
+            market=selected_market,
+            universe=selected_universe,
+            strategy_profile=config.strategy_profile,
+        )
+
+        st.session_state["robot_last_actions"] = actions
+        st.session_state["robot_last_source"] = selected_source
+        st.rerun()
+
+    reset_confirm = control3.checkbox(
+        "Sıfırlamayı onayla",
+        value=False,
+    )
+
+    if control3.button(
+        "Sanal Hesabı Sıfırla",
+        disabled=not reset_confirm,
+        use_container_width=True,
+    ):
+        robot.reset_account()
+        st.session_state.pop("robot_last_actions", None)
+        st.session_state.pop("robot_last_source", None)
+        st.success(f"{MARKET_ACCOUNTS[selected_market_label]['label']} sanal hesabı başlangıç bakiyesine sıfırlandı.")
+        st.rerun()
+
+    if scanner_results:
+        st.subheader("Robot Adayları")
+        candidate_frame = pd.DataFrame(filtered_candidates)
+
+        if candidate_frame.empty:
+            st.info(
+                "Seçilen minimum puan ve güven şartlarına "
+                "uygun aday bulunamadı."
+            )
+        else:
+            columns = [
+                column
+                for column in [
+                    "Kod",
+                    "Hisse",
+                    "Karar",
+                    "Puan",
+                    "Güven",
+                    "Güven Durumu",
+                    "Güven Yıldızı",
+                    "Risk",
+                    "Başarı Göstergesi %",
+                    "Fiyat",
+                    "Stop",
+                    "Hedef 1",
+                    "Hedef 2",
+                    "Neden",
+                    "AI Analizi",
+                ]
+                if column in candidate_frame.columns
+            ]
+
+            st.dataframe(
+                candidate_frame[columns].style.format(
+                    {
+                        "Puan": "{:.1f}",
+                        "Güven": "{:.1f}",
+                        "Başarı Göstergesi %": "{:.1f}%",
+                        "Fiyat": "{:,.4f}",
+                        "Stop": "{:,.4f}",
+                        "Hedef 1": "{:,.4f}",
+                        "Hedef 2": "{:,.4f}",
+                    },
+                    na_rep="—",
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+
+    last_actions = st.session_state.get("robot_last_actions", [])
+
+    if last_actions:
+        st.subheader("Son Robot İşlemleri")
+        st.caption(
+            "Kaynak: "
+            + st.session_state.get("robot_last_source", "Bilinmeyen")
+        )
+        _render_action_messages(last_actions)
+
+    st.divider()
+    st.subheader("Açık Pozisyonlar")
+
+    positions = robot.get_open_positions()
+
+    if positions.empty:
+        st.info("Robotun açık sanal pozisyonu bulunmuyor.")
+    else:
+        positions = positions.copy()
+        quantity_numeric = pd.to_numeric(positions["quantity"], errors="coerce").fillna(0.0)
+        entry_numeric = pd.to_numeric(positions["entry_price"], errors="coerce").fillna(0.0)
+        stop_numeric = pd.to_numeric(positions["stop_price"], errors="coerce").fillna(0.0)
+
+        positions["position_value"] = quantity_numeric * entry_numeric
+        positions["stop_distance_pct"] = (
+            ((entry_numeric - stop_numeric) / entry_numeric.replace(0, pd.NA)) * 100
+        )
+        positions["estimated_risk"] = quantity_numeric * (entry_numeric - stop_numeric).clip(lower=0)
+        reference_balance = float(state.get("starting_balance") or config.starting_balance or 0.0)
+        positions["portfolio_pct"] = (
+            positions["position_value"] / reference_balance * 100
+            if reference_balance > 0
+            else 0.0
+        )
+
+        display_positions = positions.rename(
+            columns={
+                "id": "ID",
+                "symbol": "Kod",
+                "quantity": "Miktar",
+                "entry_price": "Giriş Fiyatı",
+                "stop_price": "Stop",
+                "target1": "Hedef 1",
+                "target2": "Hedef 2",
+                "opened_at": "Açılış Tarihi",
+                "status": "Durum",
+                "market": "Piyasa",
+                "universe": "Evren",
+                "technical_score": "Teknik Puan",
+                "confidence_score": "Güven",
+                "confidence_label": "Güven Durumu",
+                "decision": "Karar",
+                "entry_reason": "Giriş Nedeni",
+                "strategy_profile": "Strateji Profili",
+                "position_value": "Pozisyon Değeri",
+                "stop_distance_pct": "Stop Mesafesi %",
+                "estimated_risk": "Tahmini Risk",
+                "portfolio_pct": "Portföy %",
+            }
+        )
+
+        st.dataframe(
+            display_positions.style.format(
+                {
+                    "Miktar": "{:,.4f}",
+                    "Giriş Fiyatı": "{:,.4f}",
+                    "Stop": "{:,.4f}",
+                    "Hedef 1": "{:,.4f}",
+                    "Hedef 2": "{:,.4f}",
+                    "Teknik Puan": "{:.1f}",
+                    "Güven": "{:.1f}",
+                    "Pozisyon Değeri": "{:,.2f}",
+                    "Stop Mesafesi %": "{:.2f}%",
+                    "Tahmini Risk": "{:,.2f}",
+                    "Portföy %": "{:.2f}%",
+                },
+                na_rep="—",
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
+        st.subheader("Manuel Sanal Pozisyon Kapatma")
+
+        options = {
+            f"{row['symbol']} | Giriş: {float(row['entry_price']):,.4f}": int(row["id"])
+            for _, row in positions.iterrows()
+        }
+
+        selected_label = st.selectbox(
+            "Kapatılacak pozisyon",
+            list(options),
+        )
+        position_id = options[selected_label]
+        row = positions[positions["id"] == position_id].iloc[0]
+        default_exit_price = float(row["entry_price"])
+
+        exit_price = st.number_input(
+            "Sanal çıkış fiyatı",
+            min_value=0.0001,
+            value=default_exit_price,
+            step=max(default_exit_price * 0.001, 0.0001),
+            format="%.4f",
+        )
+
+        exit_reason = st.selectbox(
+            "Çıkış nedeni",
+            [
+                "MANUEL SATIŞ",
+                "STOP",
+                "HEDEF 1",
+                "HEDEF 2",
+                "SİNYAL ZAYIFLADI",
+            ],
+        )
+
+        if st.button("Seçili Pozisyonu Kapat", type="primary"):
+            result = robot.close_position(
+                position_id=position_id,
+                exit_price=float(exit_price),
+                exit_reason=exit_reason,
+            )
+
+            if result.get("ok"):
+                st.success(result["message"])
+                st.rerun()
+            else:
+                st.error(result["message"])
+
+    st.divider()
+    st.subheader("İşlem Geçmişi")
+
+    history = robot.get_trade_history()
+
+    if history.empty:
+        st.info("Henüz sanal işlem geçmişi oluşmadı.")
+    else:
+        _render_trade_intelligence_summary(history)
+
+        display_history = history.rename(
+            columns={
+                "id": "ID",
+                "symbol": "Kod",
+                "side": "İşlem",
+                "quantity": "Miktar",
+                "price": "Fiyat",
+                "commission": "Komisyon",
+                "profit": "Kâr/Zarar",
+                "created_at": "Tarih",
+                "market": "Piyasa",
+                "universe": "Evren",
+                "technical_score": "Teknik Puan",
+                "confidence_score": "Güven",
+                "confidence_label": "Güven Durumu",
+                "decision": "Karar",
+                "reason": "Neden",
+                "strategy_profile": "Strateji Profili",
+                "position_id": "Pozisyon ID",
+                "entry_price": "Giriş Fiyatı",
+                "exit_price": "Çıkış Fiyatı",
+                "profit_pct": "Kâr %",
+                "holding_minutes": "Süre (dk)",
+                "mfe_pct": "MFE %",
+                "mae_pct": "MAE %",
+                "risk_pct": "Risk %",
+                "reward_pct": "Ödül %",
+                "risk_reward": "Risk/Ödül",
+                "entry_efficiency": "Giriş Verimi",
+                "exit_efficiency": "Çıkış Verimi",
+                "trade_quality_score": "Kalite Puanı",
+                "trade_grade": "İşlem Notu",
+            }
+        )
+
+        st.dataframe(
+            display_history.style.format(
+                {
+                    "Miktar": "{:,.4f}",
+                    "Fiyat": "{:,.4f}",
+                    "Komisyon": "{:,.2f}",
+                    "Kâr/Zarar": "{:+,.2f}",
+                    "Teknik Puan": "{:.1f}",
+                    "Güven": "{:.1f}",
+                    "Giriş Fiyatı": "{:,.4f}",
+                    "Çıkış Fiyatı": "{:,.4f}",
+                    "Kâr %": "{:+.2f}%",
+                    "Süre (dk)": "{:,.0f}",
+                    "MFE %": "{:+.2f}%",
+                    "MAE %": "{:+.2f}%",
+                    "Risk %": "{:.2f}%",
+                    "Ödül %": "{:.2f}%",
+                    "Risk/Ödül": "{:.2f}",
+                    "Giriş Verimi": "{:.1f}",
+                    "Çıkış Verimi": "{:.1f}",
+                    "Kalite Puanı": "{:.1f}",
+                },
+                na_rep="—",
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
+        csv_data = display_history.to_csv(index=False).encode("utf-8-sig")
+
+        st.download_button(
+            "İşlem Geçmişini CSV İndir",
+            data=csv_data,
+            file_name="alphascan_robot_islem_gecmisi.csv",
+            mime="text/csv",
+        )
+
+    st.divider()
+
+    with st.expander("Robot Kuralları"):
+        st.markdown(
+            f'''
+            - Başlangıç sanal bakiyesi: **{config.starting_balance:,.0f} TL**
+            - Minimum teknik puan: **{config.minimum_score:.0f}**
+            - Minimum güven puanı: **{minimum_confidence:.0f}**
+            - Minimum başarı göstergesi: **%{minimum_probability:.0f}**
+            - Kabul edilen risk seviyeleri: **{", ".join(allowed_risk_list) or "Yok"}**
+            - Geçerli kararlar: **{", ".join(config.allowed_decisions)}**
+            - Maksimum açık pozisyon: **{config.max_positions}**
+            - Pozisyon başına bakiye kullanımı: **%{config.position_size_pct * 100:.0f}**
+            - Risk bazlı pozisyon büyüklüğü: **{"Aktif" if getattr(config, "risk_based_position_sizing", False) else "Kapalı"}**
+            - İşlem başına azami risk: **%{getattr(config, "risk_per_trade_pct", 0.0):.2f}**
+            - Günlük zarar limiti: **%{getattr(config, "max_daily_loss_pct", 0.0):.2f}**
+            - Günlük işlem limiti: **{getattr(config, "max_daily_trades", 0)}**
+            - Arka arkaya zarar limiti: **{getattr(config, "max_consecutive_losses", 0)}**
+            - Tek yön komisyon: **%{config.commission_rate * 100:.2f}**
+            - Strateji profili: **{config.strategy_profile}**
+            - Aynı varlıkta ikinci açık pozisyon açılmaz.
+            - Robot gerçek emir göndermez.
+            '''
+        )

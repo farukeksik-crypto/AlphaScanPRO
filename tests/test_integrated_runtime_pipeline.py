@@ -1,0 +1,497 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import pytest
+
+from engine.integrated_runtime_pipeline import (
+    IntegratedRuntimeConfig,
+    IntegratedRuntimePipeline,
+    PipelineStage,
+    PipelineStatus,
+)
+from engine.intelligent_decision_filter import (
+    DecisionFilterConfig,
+    IntelligentDecisionFilter,
+)
+from engine.multi_timeframe_confirmation import (
+    MultiTimeframeConfig,
+    MultiTimeframeConfirmationEngine,
+)
+from engine.robot_runtime import RuntimeAction, StrategyDecision
+from engine.smart_position_manager import SmartPositionManager
+
+
+class FakeExecution:
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, decision, context):
+        self.calls.append((decision, context))
+        return {
+            "status": "FILLED",
+            "symbol": decision.symbol,
+            "side": decision.action.value,
+            "price": context["price"],
+            "executed_quantity": decision.quantity,
+        }
+
+
+class FakeProcessExecution:
+    def process(self, decision, context):
+        return {
+            "symbol": decision.symbol,
+            "action": decision.action.value,
+            "price": context["price"],
+            "quantity": decision.quantity,
+        }
+
+
+class FakeSync:
+    def __init__(self, fail=False):
+        self.calls = 0
+        self.fail = fail
+
+    def sync_all(self):
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("sync fail")
+        return {"synced": True}
+
+
+def make_filter():
+    return IntelligentDecisionFilter(
+        DecisionFilterConfig(
+            enabled=True,
+            minimum_quality_score=60,
+            reduced_quality_score=75,
+        )
+    )
+
+
+def make_mtf():
+    return MultiTimeframeConfirmationEngine(
+        MultiTimeframeConfig(
+            minimum_confirmation_score=60,
+            full_confirmation_score=75,
+        )
+    )
+
+
+def good_context():
+    return {
+        "price": 100.0,
+        "atr": 2.0,
+        "trend": "BULLISH",
+        "rsi": 55,
+        "volume_ratio": 1.4,
+        "volatility_pct": 2.0,
+        "spread_pct": 0.10,
+        "market_data_age_seconds": 1,
+        "liquidity_score": 90,
+    }
+
+
+def good_timeframes():
+    return {
+        "15m": {"trend": "BULLISH", "score": 85},
+        "1h": {"trend": "BULLISH", "score": 90},
+        "4h": {"trend": "BULLISH", "score": 88},
+        "1d": {"trend": "BULLISH", "score": 82},
+    }
+
+
+def buy_decision():
+    return StrategyDecision(
+        symbol="BTC/USDT",
+        action=RuntimeAction.BUY,
+        score=85,
+        reason="Güçlü al sinyali",
+        quantity=2,
+        price=100,
+        metadata={},
+    )
+
+
+def build_pipeline(**config_overrides):
+    execution = FakeExecution()
+    sync = FakeSync()
+    pipeline = IntegratedRuntimePipeline(
+        decision_filter=make_filter(),
+        timeframe_engine=make_mtf(),
+        position_manager=SmartPositionManager(),
+        execution_engine=execution,
+        sync_manager=sync,
+        config=IntegratedRuntimeConfig(**config_overrides),
+    )
+    return pipeline, execution, sync
+
+
+def test_config_validation() -> None:
+    with pytest.raises(ValueError):
+        IntegratedRuntimeConfig(allowed_actions=()).validate()
+
+
+def test_successful_pipeline() -> None:
+    pipeline, execution, sync = build_pipeline()
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.status == PipelineStatus.EXECUTED
+    assert result.executed is True
+    assert len(execution.calls) == 1
+    assert sync.calls == 1
+    assert result.position is not None
+
+
+def test_stage_order() -> None:
+    pipeline, _, _ = build_pipeline()
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    stages = [item.stage for item in result.stages]
+    assert stages == [
+        PipelineStage.RECEIVED,
+        PipelineStage.DECISION_FILTER,
+        PipelineStage.MULTI_TIMEFRAME,
+        PipelineStage.EXECUTION,
+        PipelineStage.POSITION_MANAGER,
+        PipelineStage.SYNC,
+        PipelineStage.COMPLETED,
+    ]
+
+
+def test_hold_skipped() -> None:
+    pipeline, execution, _ = build_pipeline()
+    decision = buy_decision()
+    decision.action = RuntimeAction.HOLD
+    result = pipeline.process(decision, market_context=good_context())
+    assert result.status == PipelineStatus.SKIPPED
+    assert execution.calls == []
+
+
+def test_disabled_skipped() -> None:
+    pipeline, execution, _ = build_pipeline(enabled=False)
+    result = pipeline.process(buy_decision())
+    assert result.status == PipelineStatus.SKIPPED
+    assert execution.calls == []
+
+
+def test_missing_price_failed() -> None:
+    pipeline, execution, _ = build_pipeline()
+    context = good_context()
+    del context["price"]
+    result = pipeline.process(
+        buy_decision(),
+        market_context=context,
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.status == PipelineStatus.FAILED
+    assert execution.calls == []
+
+
+def test_filter_rejection_blocks_execution() -> None:
+    pipeline, execution, _ = build_pipeline()
+    context = good_context()
+    context.update(
+        {
+            "trend": "BEARISH",
+            "rsi": 80,
+            "volume_ratio": 0.1,
+            "volatility_pct": 20.0,
+            "spread_pct": 2.0,
+            "market_data_age_seconds": 9999,
+            "liquidity_score": 0,
+        }
+    )
+    result = pipeline.process(
+        buy_decision(),
+        market_context=context,
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.status == PipelineStatus.BLOCKED
+    assert execution.calls == []
+
+
+def test_mtf_rejection_blocks_execution() -> None:
+    pipeline, execution, _ = build_pipeline()
+    signals = good_timeframes()
+    signals["4h"] = {"trend": "BEARISH", "score": 90}
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=signals,
+    )
+    assert result.status == PipelineStatus.BLOCKED
+    assert execution.calls == []
+
+
+def test_duplicate_position_failed() -> None:
+    pipeline, execution, _ = build_pipeline()
+    first = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert first.executed
+    second = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert second.status == PipelineStatus.FAILED
+    assert len(execution.calls) == 1
+
+
+def test_duplicate_allowed() -> None:
+    pipeline, execution, _ = build_pipeline(
+        block_duplicate_open_position=False
+    )
+    pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.executed
+    assert len(execution.calls) == 2
+
+
+def test_auto_position_disabled() -> None:
+    pipeline, _, _ = build_pipeline(auto_open_position=False)
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.executed
+    assert result.position is None
+
+
+def test_sync_disabled() -> None:
+    pipeline, _, sync = build_pipeline(auto_sync_after_execution=False)
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.executed
+    assert sync.calls == 0
+
+
+def test_sync_failure_continues() -> None:
+    execution = FakeExecution()
+    pipeline = IntegratedRuntimePipeline(
+        decision_filter=make_filter(),
+        timeframe_engine=make_mtf(),
+        position_manager=SmartPositionManager(),
+        execution_engine=execution,
+        sync_manager=FakeSync(fail=True),
+        config=IntegratedRuntimeConfig(continue_when_sync_fails=True),
+    )
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.status == PipelineStatus.EXECUTED
+    sync_stage = [s for s in result.stages if s.stage == PipelineStage.SYNC][0]
+    assert sync_stage.success is False
+
+
+def test_sync_failure_stops() -> None:
+    execution = FakeExecution()
+    pipeline = IntegratedRuntimePipeline(
+        decision_filter=make_filter(),
+        timeframe_engine=make_mtf(),
+        position_manager=SmartPositionManager(),
+        execution_engine=execution,
+        sync_manager=FakeSync(fail=True),
+        config=IntegratedRuntimeConfig(continue_when_sync_fails=False),
+    )
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.status == PipelineStatus.FAILED
+
+
+def test_process_execution_adapter() -> None:
+    pipeline = IntegratedRuntimePipeline(
+        decision_filter=make_filter(),
+        timeframe_engine=make_mtf(),
+        position_manager=SmartPositionManager(),
+        execution_engine=FakeProcessExecution(),
+        sync_manager=None,
+    )
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.executed
+
+
+def test_callable_execution_adapter() -> None:
+    def execute(decision, context):
+        return {
+            "symbol": decision.symbol,
+            "side": decision.action.value,
+            "price": context["price"],
+            "quantity": decision.quantity,
+        }
+
+    pipeline = IntegratedRuntimePipeline(
+        decision_filter=make_filter(),
+        timeframe_engine=make_mtf(),
+        position_manager=SmartPositionManager(),
+        execution_engine=execute,
+        sync_manager=None,
+    )
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.executed
+
+
+def test_missing_atr_failed() -> None:
+    pipeline, _, _ = build_pipeline()
+    context = good_context()
+    del context["atr"]
+    result = pipeline.process(
+        buy_decision(),
+        market_context=context,
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.status == PipelineStatus.FAILED
+
+
+def test_missing_atr_fallback() -> None:
+    pipeline, _, _ = build_pipeline(require_atr_for_position=False)
+    context = good_context()
+    del context["atr"]
+    result = pipeline.process(
+        buy_decision(),
+        market_context=context,
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.executed
+    assert result.position.atr == pytest.approx(1.0)
+
+
+def test_on_price() -> None:
+    pipeline, _, _ = build_pipeline()
+    pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    result = pipeline.on_price("BTCUSDT", 104)
+    assert "events" in result
+
+
+def test_dashboard() -> None:
+    pipeline, _, _ = build_pipeline()
+    pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    data = pipeline.dashboard()
+    assert data["total_runs"] == 1
+    assert data["counts"]["EXECUTED"] == 1
+    assert "open_positions" in data
+
+
+def test_clear_history() -> None:
+    pipeline, _, _ = build_pipeline()
+    pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    pipeline.clear_history()
+    assert pipeline.history == []
+
+
+def test_result_to_dict() -> None:
+    pipeline, _, _ = build_pipeline()
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    data = result.to_dict()
+    assert data["status"] == "EXECUTED"
+    assert data["symbol"] == "BTCUSDT"
+
+
+def test_position_metadata() -> None:
+    pipeline, _, _ = build_pipeline()
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.position.metadata["pipeline"] is True
+
+
+def test_sell_pipeline() -> None:
+    pipeline, execution, _ = build_pipeline()
+    decision = buy_decision()
+    decision.action = RuntimeAction.SELL
+    signals = {
+        "15m": {"trend": "BEARISH", "score": 85},
+        "1h": {"trend": "BEARISH", "score": 90},
+        "4h": {"trend": "BEARISH", "score": 88},
+        "1d": {"trend": "BEARISH", "score": 82},
+    }
+    context = good_context()
+    context["trend"] = "BEARISH"
+    context["rsi"] = 45
+    result = pipeline.process(
+        decision,
+        market_context=context,
+        timeframe_signals=signals,
+    )
+    assert result.executed
+    assert result.position.side.value == "SHORT"
+    assert len(execution.calls) == 1
+
+
+def test_stage_record_serialization() -> None:
+    pipeline, _, _ = build_pipeline()
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.stages[0].to_dict()["stage"] == "RECEIVED"
+
+
+def test_no_sync_manager() -> None:
+    pipeline = IntegratedRuntimePipeline(
+        decision_filter=make_filter(),
+        timeframe_engine=make_mtf(),
+        position_manager=SmartPositionManager(),
+        execution_engine=FakeExecution(),
+        sync_manager=None,
+    )
+    result = pipeline.process(
+        buy_decision(),
+        market_context=good_context(),
+        timeframe_signals=good_timeframes(),
+    )
+    assert result.executed
+    assert result.sync_result is None

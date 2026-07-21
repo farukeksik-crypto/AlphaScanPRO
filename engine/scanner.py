@@ -110,6 +110,50 @@ def _common_signal_fields(
     decision: Decision,
     frame: pd.DataFrame,
 ) -> dict[str, Any]:
+    def _series_value(
+        aliases: tuple[str, ...],
+        offset: int = -1,
+        default: float = 0.0,
+    ) -> float:
+        for alias in aliases:
+            if alias not in frame.columns:
+                continue
+            try:
+                series = pd.to_numeric(frame[alias], errors="coerce").dropna()
+                if series.empty or len(series) < abs(offset):
+                    continue
+                return _safe_float(series.iloc[offset])
+            except Exception:
+                continue
+        return _safe_float(default)
+
+    close_value = _series_value(("Close", "close", "Fiyat"), -1, decision.price)
+    ema20_value = _series_value(("EMA20", "ema20", "EMA_20"), -1, 0.0)
+    macd_hist_value = _series_value(
+        ("MACD_HIST", "MACD Hist", "macd_hist", "MACDh_12_26_9"),
+        -1,
+        0.0,
+    )
+    previous_rsi_value = _series_value(("RSI", "rsi", "RSI_14"), -2, decision.rsi)
+    previous_adx_value = _series_value(("ADX", "adx", "ADX_14"), -2, decision.adx)
+    atr_value = _series_value(
+        ("ATR", "atr", "ATR_14", "ATRr_14"),
+        -1,
+        0.0,
+    )
+
+    volume_value = _series_value(("Volume", "volume", "Hacim"), -1, 0.0)
+    volume_ma_value = _series_value(
+        ("VOLUME_MA", "Volume_MA", "volume_ma", "Hacim_MA"),
+        -1,
+        0.0,
+    )
+    volume_ratio_value = (
+        volume_value / volume_ma_value
+        if volume_value > 0 and volume_ma_value > 0
+        else 0.0
+    )
+
     return {
         "Karar": _normalize_decision(decision.action),
         "Kalite": decision.quality,
@@ -130,7 +174,14 @@ def _common_signal_fields(
         "R/K 1": _safe_float(decision.risk_reward1),
         "R/K 2": _safe_float(decision.risk_reward2),
         "RSI": decision.rsi,
+        "Previous_RSI": previous_rsi_value,
         "ADX": decision.adx,
+        "Previous_ADX": previous_adx_value,
+        "Close": close_value,
+        "EMA20": ema20_value,
+        "MACD_HIST": macd_hist_value,
+        "ATR": atr_value,
+        "Volume_Ratio": volume_ratio_value,
         "Neden": decision.reason,
         "Mum": len(frame),
     }

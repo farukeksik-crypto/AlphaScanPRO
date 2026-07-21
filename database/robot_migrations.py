@@ -17,6 +17,10 @@ POSITION_COLUMNS = {
     "currency": "TEXT",
     "highest_price": "REAL",
     "lowest_price": "REAL",
+    "break_even_active": "INTEGER NOT NULL DEFAULT 0",
+    "trailing_active": "INTEGER NOT NULL DEFAULT 0",
+    "target1_completed": "INTEGER NOT NULL DEFAULT 0",
+    "initial_quantity": "REAL",
 }
 
 TRADE_HISTORY_COLUMNS = {

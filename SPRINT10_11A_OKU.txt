@@ -1,0 +1,19 @@
+AlphaScan PRO — Sprint 10.11A Gelişmiş Grafik
+
+1) ZIP içindeki tüm dosyaları AlphaScanPRO_Git_Temiz ana klasörüne çıkarın.
+2) PowerShell'i proje klasöründe açın.
+3) Çalıştırın:
+
+py -3.13 .\apply_sprint10_11a.py
+py -3.13 .\verify_sprint10_11a.py
+
+Doğrulama başarılıysa:
+
+py -3.13 -m streamlit run app.py
+
+Git kaydı:
+
+git add .
+git commit -m "Sprint 10.11A advanced chart"
+
+Uygulama otomatik olarak değiştirdiği dosyaları backups klasörüne yedekler.

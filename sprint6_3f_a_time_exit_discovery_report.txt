@@ -1,0 +1,716 @@
+AlphaScan PRO — Sprint 6.3F-A Zaman Bazlı Çıkış Keşfi
+============================================================================
+Proje: C:\Users\Faruk\AlphaScanPRO_Git_Temiz
+
+Amaç:
+- RobotConfig alanlarını görmek
+- opened_at biçimini doğrulamak
+- get_open_positions kolonlarını görmek
+- positions tablosu zaman alanlarını kontrol etmek
+
+
+DOSYA: engine\robot_engine.py
+----------------------------------------------------------------------------
+[ClassDef: RobotConfig]
+0015: class RobotConfig:
+0016:     starting_balance: float = 1_000_000.0
+0017:     commission_rate: float = 0.001
+0018:     break_even_trigger_pct: float = 0.03
+0019:     break_even_buffer_pct: float = 0.002
+0020:     trailing_stop_pct: float = 0.015
+0021:     target1_sell_ratio: float = 0.50
+0022:     max_positions: int = 5
+0023:     position_size_pct: float = 0.20
+0024:     minimum_score: float = 75.0
+0025:     minimum_confidence: float = 0.0
+0026:     minimum_probability: float = 55.0
+0027:     allowed_decisions: tuple[str, ...] = ("NET AL", "AL ADAY")
+0028:     allowed_risks: tuple[str, ...] = ("Düşük", "Orta")
+0029:     strategy_profile: str = "Default"
+0030:     market: str = "BIST"
+0031:     account_id: str = "bist_main"
+0032:     currency: str = "TRY"
+
+[FunctionDef: _now]
+0050:     def _now() -> str:
+0051:         return datetime.now().isoformat(timespec="seconds")
+
+[FunctionDef: get_open_positions]
+0126:     def get_open_positions(self) -> pd.DataFrame:
+0127:         query = """
+0128:             SELECT
+0129:                 id,
+0130:                 symbol,
+0131:                 quantity,
+0132:                 COALESCE(initial_quantity, quantity) AS initial_quantity,
+0133:                 entry_price,
+0134:                 stop_price,
+0135:                 target1,
+0136:                 target2,
+0137:                 opened_at,
+0138:                 status,
+0139:                 market,
+0140:                 universe,
+0141:                 technical_score,
+0142:                 confidence_score,
+0143:                 confidence_label,
+0144:                 decision,
+0145:                 entry_reason,
+0146:                 strategy_profile,
+0147:                 highest_price,
+0148:                 lowest_price,
+0149:                 COALESCE(break_even_active, 0) AS break_even_active,
+0150:                 COALESCE(trailing_active, 0) AS trailing_active,
+0151:                 COALESCE(target1_completed, 0) AS target1_completed
+0152:             FROM positions
+0153:             WHERE status = 'OPEN' AND account_id = ?
+0154:             ORDER BY opened_at DESC
+0155:         """
+0156: 
+0157:         with self.database.connect() as connection:
+0158:             return pd.read_sql_query(
+0159:                 query,
+0160:                 connection,
+0161:                 params=(self.account_id,),
+0162:             )
+
+[FunctionDef: open_position]
+0240:     def open_position(
+0241:         self,
+0242:         *,
+0243:         symbol: str,
+0244:         price: float,
+0245:         stop_price: float,
+0246:         target1: float,
+0247:         target2: float,
+0248:         score: float = 0.0,
+0249:         confidence: float = 0.0,
+0250:         confidence_label: str = "",
+0251:         decision: str = "",
+0252:         reason: str = "",
+0253:         market: str = "",
+0254:         universe: str = "",
+0255:         strategy_profile: str | None = None,
+0256:     ) -> dict[str, Any]:
+0257:         state = self.get_state()
+0258:         market = self.market
+0259: 
+0260:         if not state["enabled"]:
+0261:             return {"ok": False, "message": "Robot kapalı."}
+0262: 
+0263:         if price <= 0:
+0264:             return {"ok": False, "message": "Geçersiz fiyat."}
+0265: 
+0266:         if self.has_open_position(symbol):
+0267:             return {
+0268:                 "ok": False,
+0269:                 "message": f"{symbol} için açık pozisyon zaten var.",
+0270:             }
+0271: 
+0272:         if self._open_position_count() >= self.config.max_positions:
+0273:             return {
+0274:                 "ok": False,
+0275:                 "message": "Maksimum açık pozisyon sayısına ulaşıldı.",
+0276:             }
+0277: 
+0278:         budget = state["balance"] * self.config.position_size_pct
+0279:         quantity = budget / (
+0280:             price * (1.0 + self.config.commission_rate)
+0281:         )
+0282: 
+0283:         if quantity <= 0:
+0284:             return {
+0285:                 "ok": False,
+0286:                 "message": "Pozisyon miktarı hesaplanamadı.",
+0287:             }
+0288: 
+0289:         gross_cost = quantity * price
+0290:         commission = gross_cost * self.config.commission_rate
+0291:         total_cost = gross_cost + commission
+0292: 
+0293:         if total_cost > state["balance"]:
+0294:             return {
+0295:                 "ok": False,
+0296:                 "message": "Yetersiz sanal bakiye.",
+0297:             }
+0298: 
+0299:         opened_at = self._now()
+0300:         new_balance = state["balance"] - total_cost
+0301:         profile = strategy_profile or self.config.strategy_profile
+0302: 
+0303:         with self.database.connect() as connection:
+0304:             cursor = connection.execute(
+0305:                 """
+0306:                 INSERT INTO positions (
+0307:                     symbol,
+0308:                     quantity,
+0309:                     entry_price,
+0310:                     stop_price,
+0311:                     target1,
+0312:                     target2,
+0313:                     opened_at,
+0314:                     status,
+0315:                     market,
+0316:                     universe,
+0317:                     technical_score,
+0318:                     confidence_score,
+0319:                     confidence_label,
+0320:                     decision,
+0321:                     entry_reason,
+0322:                     strategy_profile,
+0323:                     account_id,
+0324:                     currency,
+0325:                     highest_price,
+0326:                     lowest_price
+0327:                 )
+0328:                 VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN',
+0329:                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+0330:                 """,
+0331:                 (
+0332:                     symbol,
+0333:                     quantity,
+0334:                     price,
+0335:                     stop_price,
+0336:                     target1,
+0337:                     target2,
+0338:                     opened_at,
+0339:                     market,
+0340:                     universe,
+0341:                     score,
+0342:                     confidence,
+0343:                     confidence_label,
+0344:                     decision,
+0345:                     reason,
+0346:                     profile,
+0347:                     self.account_id,
+0348:                     self.currency,
+0349:                     price,
+0350:                     price,
+0351:                 ),
+0352:             )
+0353: 
+0354:             position_id = int(cursor.lastrowid)
+0355: 
+0356:             connection.execute(
+0357:                 """
+0358:                 INSERT INTO trade_history (
+0359:                     symbol,
+0360:                     side,
+0361:                     quantity,
+0362:                     price,
+0363:                     commission,
+0364:                     profit,
+0365:                     created_at,
+0366:                     market,
+0367:                     universe,
+0368:                     technical_score,
+0369:                     confidence_score,
+0370:                     confidence_label,
+0371:                     decision,
+0372:                     reason,
+0373:                     strategy_profile,
+0374:                     position_id,
+0375:                     account_id,
+0376:                     currency
+0377:                 )
+0378:                 VALUES (?, 'BUY', ?, ?, ?, 0,
+0379:                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+0380:                 """,
+0381:                 (
+0382:                     symbol,
+0383:                     quantity,
+0384:                     price,
+0385:                     commission,
+0386:                     opened_at,
+0387:                     market,
+0388:                     universe,
+0389:                     score,
+0390:                     confidence,
+0391:                     confidence_label,
+0392:                     decision,
+0393:                     reason,
+0394:                     profile,
+0395:                     position_id,
+0396:                     self.account_id,
+0397:                     self.currency,
+0398:                 ),
+0399:             )
+0400: 
+0401:             connection.execute(
+0402:                 """
+0403:                 UPDATE robot_accounts
+0404:                 SET balance = ?, updated_at = ?
+0405:                 WHERE account_id = ?
+0406:                 """,
+0407:                 (new_balance, opened_at, self.account_id),
+0408:             )
+0409: 
+0410:             connection.execute(
+0411:                 """
+0412:                 INSERT INTO system_events (
+0413:                     created_at,
+0414:                     event_type,
+0415:                     message
+0416:                 )
+0417:                 VALUES (?, 'ROBOT_BUY', ?)
+0418:                 """,
+0419:                 (
+0420:                     opened_at,
+0421:                     (
+0422:                         f"{market}/{universe} | {symbol} sanal alım | "
+0423:                         f"fiyat={price:.4f} | miktar={quantity:.4f} | "
+0424:                         f"skor={score:.1f} | güven={confidence:.1f} | "
+0425:                         f"profil={profile} | {reason}"
+0426:                     ),
+0427:                 ),
+0428:             )
+0429: 
+0430:             connection.commit()
+0431: 
+0432:         return {
+0433:             "ok": True,
+0434:             "message": f"{symbol} sanal pozisyon açıldı.",
+0435:             "position_id": position_id,
+0436:             "symbol": symbol,
+0437:             "quantity": quantity,
+0438:             "price": price,
+0439:             "commission": commission,
+0440:             "balance": new_balance,
+0441:             "market": market,
+0442:             "universe": universe,
+0443:             "score": score,
+0444:             "confidence": confidence,
+0445:         }
+
+[Şema / zaman alanı çevresi]
+0129:                 id,
+0130:                 symbol,
+0131:                 quantity,
+0132:                 COALESCE(initial_quantity, quantity) AS initial_quantity,
+0133:                 entry_price,
+0134:                 stop_price,
+0135:                 target1,
+0136:                 target2,
+0137:                 opened_at,
+0138:                 status,
+0139:                 market,
+0140:                 universe,
+0141:                 technical_score,
+0142:                 confidence_score,
+0143:                 confidence_label,
+0144:                 decision,
+0145:                 entry_reason,
+0146:                 strategy_profile,
+0147:                 highest_price,
+0148:                 lowest_price,
+0149:                 COALESCE(break_even_active, 0) AS break_even_active,
+0150:                 COALESCE(trailing_active, 0) AS trailing_active,
+0151:                 COALESCE(target1_completed, 0) AS target1_completed
+0152:             FROM positions
+0153:             WHERE status = 'OPEN' AND account_id = ?
+0154:             ORDER BY opened_at DESC
+0155:         """
+0156: 
+
+[Şema / zaman alanı çevresi]
+0146:                 strategy_profile,
+0147:                 highest_price,
+0148:                 lowest_price,
+0149:                 COALESCE(break_even_active, 0) AS break_even_active,
+0150:                 COALESCE(trailing_active, 0) AS trailing_active,
+0151:                 COALESCE(target1_completed, 0) AS target1_completed
+0152:             FROM positions
+0153:             WHERE status = 'OPEN' AND account_id = ?
+0154:             ORDER BY opened_at DESC
+0155:         """
+0156: 
+0157:         with self.database.connect() as connection:
+0158:             return pd.read_sql_query(
+0159:                 query,
+0160:                 connection,
+0161:                 params=(self.account_id,),
+0162:             )
+0163: 
+0164:     def get_trade_history(self, limit: int = 200) -> pd.DataFrame:
+0165:         query = """
+0166:             SELECT
+0167:                 id,
+0168:                 symbol,
+0169:                 side,
+0170:                 quantity,
+0171:                 price,
+0172:                 commission,
+0173:                 profit,
+
+[Şema / zaman alanı çevresi]
+0179:                 confidence_label,
+0180:                 decision,
+0181:                 reason,
+0182:                 strategy_profile,
+0183:                 position_id,
+0184:                 entry_price,
+0185:                 exit_price,
+0186:                 profit_pct,
+0187:                 holding_minutes,
+0188:                 mfe_pct,
+0189:                 mae_pct,
+0190:                 risk_pct,
+0191:                 reward_pct,
+0192:                 risk_reward,
+0193:                 entry_efficiency,
+0194:                 exit_efficiency,
+0195:                 trade_quality_score,
+0196:                 trade_grade
+0197:             FROM trade_history
+0198:             WHERE account_id = ?
+0199:             ORDER BY id DESC
+0200:             LIMIT ?
+0201:         """
+0202: 
+0203:         with self.database.connect() as connection:
+0204:             return pd.read_sql_query(
+0205:                 query,
+0206:                 connection,
+
+[Şema / zaman alanı çevresi]
+0291:         total_cost = gross_cost + commission
+0292: 
+0293:         if total_cost > state["balance"]:
+0294:             return {
+0295:                 "ok": False,
+0296:                 "message": "Yetersiz sanal bakiye.",
+0297:             }
+0298: 
+0299:         opened_at = self._now()
+0300:         new_balance = state["balance"] - total_cost
+0301:         profile = strategy_profile or self.config.strategy_profile
+0302: 
+0303:         with self.database.connect() as connection:
+0304:             cursor = connection.execute(
+0305:                 """
+0306:                 INSERT INTO positions (
+0307:                     symbol,
+0308:                     quantity,
+0309:                     entry_price,
+0310:                     stop_price,
+0311:                     target1,
+0312:                     target2,
+0313:                     opened_at,
+0314:                     status,
+0315:                     market,
+0316:                     universe,
+0317:                     technical_score,
+0318:                     confidence_score,
+
+[Şema / zaman alanı çevresi]
+0305:                 """
+0306:                 INSERT INTO positions (
+0307:                     symbol,
+0308:                     quantity,
+0309:                     entry_price,
+0310:                     stop_price,
+0311:                     target1,
+0312:                     target2,
+0313:                     opened_at,
+0314:                     status,
+0315:                     market,
+0316:                     universe,
+0317:                     technical_score,
+0318:                     confidence_score,
+0319:                     confidence_label,
+0320:                     decision,
+0321:                     entry_reason,
+0322:                     strategy_profile,
+0323:                     account_id,
+0324:                     currency,
+0325:                     highest_price,
+0326:                     lowest_price
+0327:                 )
+0328:                 VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN',
+0329:                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+0330:                 """,
+0331:                 (
+0332:                     symbol,
+
+[Şema / zaman alanı çevresi]
+0330:                 """,
+0331:                 (
+0332:                     symbol,
+0333:                     quantity,
+0334:                     price,
+0335:                     stop_price,
+0336:                     target1,
+0337:                     target2,
+0338:                     opened_at,
+0339:                     market,
+0340:                     universe,
+0341:                     score,
+0342:                     confidence,
+0343:                     confidence_label,
+0344:                     decision,
+0345:                     reason,
+0346:                     profile,
+0347:                     self.account_id,
+0348:                     self.currency,
+0349:                     price,
+0350:                     price,
+0351:                 ),
+0352:             )
+0353: 
+0354:             position_id = int(cursor.lastrowid)
+0355: 
+0356:             connection.execute(
+0357:                 """
+
+[Şema / zaman alanı çevresi]
+0378:                 VALUES (?, 'BUY', ?, ?, ?, 0,
+0379:                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+0380:                 """,
+0381:                 (
+0382:                     symbol,
+0383:                     quantity,
+0384:                     price,
+0385:                     commission,
+0386:                     opened_at,
+0387:                     market,
+0388:                     universe,
+0389:                     score,
+0390:                     confidence,
+0391:                     confidence_label,
+0392:                     decision,
+0393:                     reason,
+0394:                     profile,
+0395:                     position_id,
+0396:                     self.account_id,
+0397:                     self.currency,
+0398:                 ),
+0399:             )
+0400: 
+0401:             connection.execute(
+0402:                 """
+0403:                 UPDATE robot_accounts
+0404:                 SET balance = ?, updated_at = ?
+0405:                 WHERE account_id = ?
+
+[Şema / zaman alanı çevresi]
+0399:             )
+0400: 
+0401:             connection.execute(
+0402:                 """
+0403:                 UPDATE robot_accounts
+0404:                 SET balance = ?, updated_at = ?
+0405:                 WHERE account_id = ?
+0406:                 """,
+0407:                 (new_balance, opened_at, self.account_id),
+0408:             )
+0409: 
+0410:             connection.execute(
+0411:                 """
+0412:                 INSERT INTO system_events (
+0413:                     created_at,
+0414:                     event_type,
+0415:                     message
+0416:                 )
+0417:                 VALUES (?, 'ROBOT_BUY', ?)
+0418:                 """,
+0419:                 (
+0420:                     opened_at,
+0421:                     (
+0422:                         f"{market}/{universe} | {symbol} sanal alım | "
+0423:                         f"fiyat={price:.4f} | miktar={quantity:.4f} | "
+0424:                         f"skor={score:.1f} | güven={confidence:.1f} | "
+0425:                         f"profil={profile} | {reason}"
+0426:                     ),
+
+[Şema / zaman alanı çevresi]
+0412:                 INSERT INTO system_events (
+0413:                     created_at,
+0414:                     event_type,
+0415:                     message
+0416:                 )
+0417:                 VALUES (?, 'ROBOT_BUY', ?)
+0418:                 """,
+0419:                 (
+0420:                     opened_at,
+0421:                     (
+0422:                         f"{market}/{universe} | {symbol} sanal alım | "
+0423:                         f"fiyat={price:.4f} | miktar={quantity:.4f} | "
+0424:                         f"skor={score:.1f} | güven={confidence:.1f} | "
+0425:                         f"profil={profile} | {reason}"
+0426:                     ),
+0427:                 ),
+0428:             )
+0429: 
+0430:             connection.commit()
+0431: 
+0432:         return {
+0433:             "ok": True,
+0434:             "message": f"{symbol} sanal pozisyon açıldı.",
+0435:             "position_id": position_id,
+0436:             "symbol": symbol,
+0437:             "quantity": quantity,
+0438:             "price": price,
+0439:             "commission": commission,
+
+[Şema / zaman alanı çevresi]
+0466:                     market,
+0467:                     universe,
+0468:                     technical_score,
+0469:                     confidence_score,
+0470:                     confidence_label,
+0471:                     decision,
+0472:                     entry_reason,
+0473:                     strategy_profile,
+0474:                     opened_at,
+0475:                     highest_price,
+0476:                     lowest_price,
+0477:                     stop_price,
+0478:                     target2
+0479:                 FROM positions
+0480:                 WHERE id = ?
+0481:                   AND status = 'OPEN'
+0482:                   AND account_id = ?
+0483:                 """,
+0484:                 (position_id, self.account_id),
+0485:             ).fetchone()
+0486: 
+0487:             if row is None:
+0488:                 return {
+0489:                     "ok": False,
+0490:                     "message": "Açık pozisyon bulunamadı.",
+0491:                 }
+0492: 
+0493:             (
+
+[Şema / zaman alanı çevresi]
+0497:                 market,
+0498:                 universe,
+0499:                 technical_score,
+0500:                 confidence_score,
+0501:                 confidence_label,
+0502:                 decision,
+0503:                 entry_reason,
+0504:                 strategy_profile,
+0505:                 opened_at,
+0506:                 highest_price,
+0507:                 lowest_price,
+0508:                 stop_price,
+0509:                 target2,
+0510:             ) = row
+0511: 
+0512:             quantity = float(quantity)
+0513:             entry_price = float(entry_price)
+0514: 
+0515:             state_row = connection.execute(
+0516:                 """
+0517:                 SELECT balance, daily_profit, total_profit
+0518:                 FROM robot_accounts
+0519:                 WHERE account_id = ?
+0520:                 """,
+0521:                 (self.account_id,),
+0522:             ).fetchone()
+0523: 
+0524:             if state_row is None:
+
+[Şema / zaman alanı çevresi]
+0550:             closed_at = self._now()
+0551:             new_balance = balance + net_revenue
+0552: 
+0553:             analytics = analyze_closed_trade(
+0554:                 entry_price=entry_price,
+0555:                 exit_price=exit_price,
+0556:                 quantity=quantity,
+0557:                 total_profit=profit,
+0558:                 opened_at=opened_at,
+0559:                 closed_at=closed_at,
+0560:                 highest_price=highest_price,
+0561:                 lowest_price=lowest_price,
+0562:                 stop_price=stop_price,
+0563:                 target_price=target2,
+0564:                 technical_score=float(technical_score or 0),
+0565:                 confidence_score=float(confidence_score or 0),
+0566:             )
+0567: 
+0568:             connection.execute(
+0569:                 """
+0570:                 UPDATE positions
+0571:                 SET status = 'CLOSED'
+0572:                 WHERE id = ?
+0573:                 """,
+0574:                 (position_id,),
+0575:             )
+0576: 
+0577:             connection.execute(
+
+[Şema / zaman alanı çevresi]
+0593:                     reason,
+0594:                     strategy_profile,
+0595:                     position_id,
+0596:                     account_id,
+0597:                     currency,
+0598:                     entry_price,
+0599:                     exit_price,
+0600:                     profit_pct,
+0601:                     holding_minutes,
+0602:                     mfe_pct,
+0603:                     mae_pct,
+0604:                     risk_pct,
+0605:                     reward_pct,
+0606:                     risk_reward,
+0607:                     entry_efficiency,
+0608:                     exit_efficiency,
+0609:                     trade_quality_score,
+0610:                     trade_grade
+0611:                 )
+0612:                 VALUES (?, 'SELL', ?, ?, ?, ?, ?,
+0613:                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+0614:                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+0615:                 """,
+0616:                 (
+0617:                     symbol,
+0618:                     quantity,
+0619:                     exit_price,
+0620:                     sell_commission,
+
+[Şema / zaman alanı çevresi]
+0629:                     exit_reason,
+0630:                     strategy_profile,
+0631:                     position_id,
+0632:                     self.account_id,
+0633:                     self.currency,
+0634:                     entry_price,
+0635:                     exit_price,
+0636:                     analytics.profit_pct,
+0637:                     analytics.holding_minutes,
+0638:                     analytics.mfe_pct,
+0639:                     analytics.mae_pct,
+0640:                     analytics.risk_pct,
+0641:                     analytics.reward_pct,
+0642:                     analytics.risk_reward,
+0643:                     analytics.entry_efficiency,
+0644:                     analytics.exit_efficiency,
+0645:                     analytics.trade_quality_score,
+0646:                     analytics.trade_grade,
+0647:                 ),
+0648:             )
+0649: 
+0650:             connection.execute(
+0651:                 """
+0652:                 UPDATE robot_accounts
+0653:                 SET balance = ?,
+0654:                     daily_profit = ?,
+0655:                     total_profit = ?,
+0656:                     updated_at = ?
+
+
+DOSYA: database\database.py
+----------------------------------------------------------------------------
+Dosya bulunamadı.
+
+
+DOSYA: database\schema.py
+----------------------------------------------------------------------------
+Dosya bulunamadı.
+
+
+Bu rapor hiçbir proje dosyasını değiştirmedi.

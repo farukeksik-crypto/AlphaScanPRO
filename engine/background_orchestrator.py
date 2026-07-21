@@ -1,12 +1,15 @@
 from __future__ import annotations
+import json
 
 from datetime import datetime
 from typing import Any
 
 from config.market_universes import get_crypto_pairs
 from engine.analysis_engine import analyze_signal_payload
+from engine.filter_analytics import FilterAnalytics
 from engine.robot_engine import RobotConfig, RobotEngine
 from engine.market_accounts import account_for_market, normalize_market
+from database.robot_settings_repository import load_robot_settings
 from engine.notification_manager import NotificationManager
 from engine.scanner import scan_commodities, scan_crypto, scan_yahoo_items
 
@@ -20,18 +23,28 @@ class BackgroundOrchestrator:
         self.logger = logger
         self.notifier = NotificationManager(database, settings, logger)
         self.robot = self._robot_for_market("BIST")
+        self.filter_analytics = FilterAnalytics(database, logger)
 
     def _robot_for_market(self, market: str) -> RobotEngine:
         normalized = normalize_market(market)
         account = account_for_market(normalized)
+        saved = load_robot_settings(
+            self.database,
+            account_id=account["account_id"],
+            market=normalized,
+        )
         return RobotEngine(
             self.database,
             RobotConfig(
                 starting_balance=float(account["starting_balance"]),
-                minimum_score=80.0,
-                minimum_probability=60.0,
-                allowed_decisions=("NET AL",),
-                strategy_profile=f"Background {normalized} V1",
+                max_positions=int(saved["max_positions"]),
+                position_size_pct=float(saved["position_size_pct"]),
+                minimum_score=float(saved["minimum_score"]),
+                minimum_confidence=float(saved["minimum_confidence"]),
+                minimum_probability=float(saved["minimum_probability"]),
+                allowed_decisions=tuple(saved["allowed_decisions"]),
+                allowed_risks=tuple(saved["allowed_risks"]),
+                strategy_profile=str(saved["strategy_profile"]),
                 market=normalized,
                 account_id=account["account_id"],
                 currency=account["currency"],
@@ -115,6 +128,38 @@ class BackgroundOrchestrator:
             )
             connection.commit()
 
+    def _save_robot_diagnostics(
+        self,
+        market: str,
+        universe: str,
+        diagnostics: list[str],
+        scanned_count: int,
+    ) -> None:
+        payload = {
+            "market": market,
+            "universe": universe,
+            "scanned_count": scanned_count,
+            "diagnostics": diagnostics,
+        }
+
+        with self.database.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO system_events (
+                    created_at,
+                    event_type,
+                    message
+                )
+                VALUES (?, ?, ?)
+                """,
+                (
+                    self._now(),
+                    "ROBOT_DIAGNOSTIC",
+                    json.dumps(payload, ensure_ascii=False),
+                ),
+            )
+            connection.commit()
+
     def _candidate_diagnostics(self, rows: list[dict[str, Any]], market: str = "BIST", limit: int = 8) -> list[str]:
         diagnostics: list[str] = []
         ranked = sorted(rows, key=lambda row: float(row.get("Puan", 0) or 0), reverse=True)
@@ -124,8 +169,9 @@ class BackgroundOrchestrator:
             symbol = str(row.get("Kod", "?"))
             decision = str(row.get("Karar", ""))
             score = float(row.get("Puan", 0) or 0)
+            confidence = float(row.get("Güven", 0) or 0)
             probability = float(row.get("Başarı Göstergesi %", 0) or 0)
-            risk = str(row.get("Risk", ""))
+            risk = str(row.get("Risk", "")).strip()
             reasons: list[str] = []
             if not state["enabled"]:
                 reasons.append("robot kapalı")
@@ -133,10 +179,12 @@ class BackgroundOrchestrator:
                 reasons.append(f"karar={decision or 'yok'}")
             if score < robot.config.minimum_score:
                 reasons.append(f"puan {score:.0f} < {robot.config.minimum_score:.0f}")
+            if confidence < robot.config.minimum_confidence:
+                reasons.append(f"güven {confidence:.0f} < {robot.config.minimum_confidence:.0f}")
             if probability < robot.config.minimum_probability:
                 reasons.append(f"olasılık %{probability:.0f} < %{robot.config.minimum_probability:.0f}")
-            if risk == "Yüksek":
-                reasons.append("risk yüksek")
+            if robot.config.allowed_risks and risk not in robot.config.allowed_risks:
+                reasons.append(f"risk={risk or 'yok'} kabul edilmiyor")
             if robot.has_open_position(symbol):
                 reasons.append("açık pozisyon var")
             if not reasons:
@@ -150,7 +198,25 @@ class BackgroundOrchestrator:
             str(row.get("Kod", "")): float(row.get("Fiyat", 0) or 0)
             for row in rows if row.get("Kod") and float(row.get("Fiyat", 0) or 0) > 0
         }
-        actions = robot.process_open_positions(latest_prices)
+        latest_signals = {
+            str(row.get("Kod", "")): {
+                "rsi": float(row.get("RSI", 0) or 0),
+                "previous_rsi": float(row.get("Previous_RSI", 0) or 0),
+                "macd_hist": float(row.get("MACD_HIST", 0) or 0),
+                "close": float(row.get("Close", row.get("Fiyat", 0)) or 0),
+                "ema20": float(row.get("EMA20", 0) or 0),
+                "atr": float(row.get("ATR", 0) or 0),
+                "volume_ratio": float(row.get("Volume_Ratio", 0) or 0),
+                "adx": float(row.get("ADX", 0) or 0),
+                "previous_adx": float(row.get("Previous_ADX", 0) or 0),
+            }
+            for row in rows
+            if row.get("Kod")
+        }
+        actions = robot.process_open_positions(
+            latest_prices,
+            latest_signals=latest_signals,
+        )
         if enabled:
             actions.extend(robot.process_scanner_results(
                 rows, market=normalize_market(market), universe=universe,
@@ -186,7 +252,30 @@ class BackgroundOrchestrator:
             rows, failures = scan_callable()
             rows = self._normalize(rows, market, universe)
             self._save_results(run_id, rows, market, universe)
-            actions = self._process_robot(rows, market, universe, robot_enabled)
+
+            analytics_robot = self._robot_for_market(market)
+            analytics_count = self.filter_analytics.record_rows(
+                run_id=run_id,
+                rows=rows,
+                market=market,
+                universe=universe,
+                robot=analytics_robot,
+                robot_enabled=robot_enabled,
+            )
+
+            self.logger.info(
+                "%s/%s filtre analizi: %s karar kaydedildi",
+                market,
+                universe,
+                analytics_count,
+            )
+
+            actions = self._process_robot(
+                rows,
+                market,
+                universe,
+                robot_enabled,
+            )
             successful_actions = [action for action in actions if action.get("ok")]
             self._finish_run(run_id, status="SUCCESS", scanned=len(rows), failures=len(failures), actions=len(successful_actions))
             self.logger.info("%s/%s tamamlandı: %s sonuç, %s hata, %s robot aksiyonu", market, universe, len(rows), len(failures), len(successful_actions))
@@ -194,7 +283,21 @@ class BackgroundOrchestrator:
                 self._notify_actions(market, universe, successful_actions)
             else:
                 diagnostics = self._candidate_diagnostics(rows, market)
-                self.logger.info("%s/%s işlem açılmama nedenleri: %s", market, universe, " | ".join(diagnostics))
+
+                self._save_robot_diagnostics(
+                    market=market,
+                    universe=universe,
+                    diagnostics=diagnostics,
+                    scanned_count=len(rows),
+                )
+
+                self.logger.info(
+                    "%s/%s işlem açılmama nedenleri: %s",
+                    market,
+                    universe,
+                    " | ".join(diagnostics),
+                )
+
                 if self.settings.notify_no_action:
                     self.notifier.send(
                         "NO_ACTION",

@@ -1,0 +1,1016 @@
+AlphaScan PRO — Sprint 6.3F Çıkış Motoru Keşif Raporu
+========================================================================
+Proje: C:\Users\Faruk\AlphaScanPRO_Git_Temiz
+
+
+DOSYA: engine\robot_engine.py
+------------------------------------------------------------------------
+
+[FunctionDef: close_position]
+0447:     def close_position(
+0448:         self,
+0449:         position_id: int,
+0450:         exit_price: float,
+0451:         exit_reason: str,
+0452:     ) -> dict[str, Any]:
+0453:         if exit_price <= 0:
+0454:             return {
+0455:                 "ok": False,
+0456:                 "message": "Geçersiz çıkış fiyatı.",
+0457:             }
+0458: 
+0459:         with self.database.connect() as connection:
+0460:             row = connection.execute(
+0461:                 """
+0462:                 SELECT
+0463:                     symbol,
+0464:                     quantity,
+0465:                     entry_price,
+0466:                     market,
+0467:                     universe,
+0468:                     technical_score,
+0469:                     confidence_score,
+0470:                     confidence_label,
+0471:                     decision,
+0472:                     entry_reason,
+0473:                     strategy_profile,
+0474:                     opened_at,
+0475:                     highest_price,
+0476:                     lowest_price,
+0477:                     stop_price,
+0478:                     target2
+0479:                 FROM positions
+0480:                 WHERE id = ?
+0481:                   AND status = 'OPEN'
+0482:                   AND account_id = ?
+0483:                 """,
+0484:                 (position_id, self.account_id),
+0485:             ).fetchone()
+0486: 
+0487:             if row is None:
+0488:                 return {
+0489:                     "ok": False,
+0490:                     "message": "Açık pozisyon bulunamadı.",
+0491:                 }
+0492: 
+0493:             (
+0494:                 symbol,
+0495:                 quantity,
+0496:                 entry_price,
+0497:                 market,
+0498:                 universe,
+0499:                 technical_score,
+0500:                 confidence_score,
+0501:                 confidence_label,
+0502:                 decision,
+0503:                 entry_reason,
+0504:                 strategy_profile,
+0505:                 opened_at,
+0506:                 highest_price,
+0507:                 lowest_price,
+0508:                 stop_price,
+0509:                 target2,
+0510:             ) = row
+0511: 
+0512:             quantity = float(quantity)
+0513:             entry_price = float(entry_price)
+0514: 
+0515:             state_row = connection.execute(
+0516:                 """
+0517:                 SELECT balance, daily_profit, total_profit
+0518:                 FROM robot_accounts
+0519:                 WHERE account_id = ?
+0520:                 """,
+0521:                 (self.account_id,),
+0522:             ).fetchone()
+0523: 
+0524:             if state_row is None:
+0525:                 return {
+0526:                     "ok": False,
+0527:                     "message": "Robot hesabı bulunamadı.",
+0528:                 }
+0529: 
+0530:             balance = float(state_row[0])
+0531:             daily_profit = float(state_row[1])
+0532:             total_profit = float(state_row[2])
+0533: 
+0534:             gross_revenue = quantity * exit_price
+0535:             sell_commission = (
+0536:                 gross_revenue * self.config.commission_rate
+0537:             )
+0538:             net_revenue = gross_revenue - sell_commission
+0539: 
+0540:             entry_gross = quantity * entry_price
+0541:             buy_commission = (
+0542:                 entry_gross * self.config.commission_rate
+0543:             )
+0544: 
+0545:             profit = (
+0546:                 net_revenue
+0547:                 - entry_gross
+0548:                 - buy_commission
+0549:             )
+0550:             closed_at = self._now()
+0551:             new_balance = balance + net_revenue
+0552: 
+0553:             analytics = analyze_closed_trade(
+0554:                 entry_price=entry_price,
+0555:                 exit_price=exit_price,
+0556:                 quantity=quantity,
+0557:                 total_profit=profit,
+0558:                 opened_at=opened_at,
+0559:                 closed_at=closed_at,
+0560:                 highest_price=highest_price,
+0561:                 lowest_price=lowest_price,
+0562:                 stop_price=stop_price,
+0563:                 target_price=target2,
+0564:                 technical_score=float(technical_score or 0),
+0565:                 confidence_score=float(confidence_score or 0),
+0566:             )
+0567: 
+0568:             connection.execute(
+0569:                 """
+0570:                 UPDATE positions
+0571:                 SET status = 'CLOSED'
+0572:                 WHERE id = ?
+0573:                 """,
+0574:                 (position_id,),
+0575:             )
+0576: 
+0577:             connection.execute(
+0578:                 """
+0579:                 INSERT INTO trade_history (
+0580:                     symbol,
+0581:                     side,
+0582:                     quantity,
+0583:                     price,
+0584:                     commission,
+0585:                     profit,
+0586:                     created_at,
+0587:                     market,
+0588:                     universe,
+0589:                     technical_score,
+0590:                     confidence_score,
+0591:                     confidence_label,
+0592:                     decision,
+0593:                     reason,
+0594:                     strategy_profile,
+0595:                     position_id,
+0596:                     account_id,
+0597:                     currency,
+0598:                     entry_price,
+0599:                     exit_price,
+0600:                     profit_pct,
+0601:                     holding_minutes,
+0602:                     mfe_pct,
+0603:                     mae_pct,
+0604:                     risk_pct,
+0605:                     reward_pct,
+0606:                     risk_reward,
+0607:                     entry_efficiency,
+0608:                     exit_efficiency,
+0609:                     trade_quality_score,
+0610:                     trade_grade
+0611:                 )
+0612:                 VALUES (?, 'SELL', ?, ?, ?, ?, ?,
+0613:                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+0614:                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+0615:                 """,
+0616:                 (
+0617:                     symbol,
+0618:                     quantity,
+0619:                     exit_price,
+0620:                     sell_commission,
+0621:                     profit,
+0622:                     closed_at,
+0623:                     market,
+0624:                     universe,
+0625:                     technical_score,
+0626:                     confidence_score,
+0627:                     confidence_label,
+0628:                     decision,
+0629:                     exit_reason,
+0630:                     strategy_profile,
+0631:                     position_id,
+0632:                     self.account_id,
+0633:                     self.currency,
+0634:                     entry_price,
+0635:                     exit_price,
+0636:                     analytics.profit_pct,
+0637:                     analytics.holding_minutes,
+0638:                     analytics.mfe_pct,
+0639:                     analytics.mae_pct,
+0640:                     analytics.risk_pct,
+0641:                     analytics.reward_pct,
+0642:                     analytics.risk_reward,
+0643:                     analytics.entry_efficiency,
+0644:                     analytics.exit_efficiency,
+0645:                     analytics.trade_quality_score,
+0646:                     analytics.trade_grade,
+0647:                 ),
+0648:             )
+0649: 
+0650:             connection.execute(
+0651:                 """
+0652:                 UPDATE robot_accounts
+0653:                 SET balance = ?,
+0654:                     daily_profit = ?,
+0655:                     total_profit = ?,
+0656:                     updated_at = ?
+0657:                 WHERE account_id = ?
+0658:                 """,
+0659:                 (
+0660:                     new_balance,
+0661:                     daily_profit + profit,
+0662:                     total_profit + profit,
+0663:                     closed_at,
+0664:                     self.account_id,
+0665:                 ),
+0666:             )
+0667: 
+0668:             connection.execute(
+0669:                 """
+0670:                 INSERT INTO system_events (
+0671:                     created_at,
+0672:                     event_type,
+0673:                     message
+0674:                 )
+0675:                 VALUES (?, 'ROBOT_SELL', ?)
+0676:                 """,
+0677:                 (
+0678:                     closed_at,
+0679:                     (
+0680:                         f"{market}/{universe} | {symbol} sanal satış | "
+0681:                         f"fiyat={exit_price:.4f} | "
+0682:                         f"kâr/zarar={profit:.2f} | "
+0683:                         f"neden={exit_reason} | "
+0684:                         f"profil={strategy_profile}"
+0685:                     ),
+0686:                 ),
+0687:             )
+0688: 
+0689:             connection.commit()
+0690: 
+0691:         return {
+0692:             "ok": True,
+0693:             "message": f"{symbol} pozisyonu kapatıldı.",
+0694:             "symbol": symbol,
+0695:             "profit": profit,
+0696:             "balance": new_balance,
+0697:             "market": market,
+0698:             "universe": universe,
+0699:         }
+
+[FunctionDef: process_open_positions]
+0701:     def process_open_positions(
+0702:         self,
+0703:         latest_prices: dict[str, float],
+0704:         latest_signals: dict[str, dict[str, Any]] | None = None,
+0705:     ) -> list[dict[str, Any]]:
+0706:         actions: list[dict[str, Any]] = []
+0707:         latest_signals = latest_signals or {}
+0708:         positions = self.get_open_positions()
+0709: 
+0710:         if positions.empty:
+0711:             return actions
+0712: 
+0713:         for _, position in positions.iterrows():
+0714:             symbol = str(position["symbol"])
+0715:             current_price = latest_prices.get(symbol)
+0716: 
+0717:             if current_price is None:
+0718:                 continue
+0719: 
+0720:             current_price = float(current_price)
+0721:             position_id = int(position["id"])
+0722:             entry_price = float(position["entry_price"])
+0723:             quantity = float(position["quantity"])
+0724:             initial_quantity = float(
+0725:                 position.get("initial_quantity", quantity) or quantity
+0726:             )
+0727:             stop_price = float(position["stop_price"] or 0)
+0728:             target1 = float(position["target1"] or 0)
+0729:             target2 = float(position["target2"] or 0)
+0730:             stored_highest = float(
+0731:                 position.get("highest_price", entry_price) or entry_price
+0732:             )
+0733:             highest_price = max(stored_highest, current_price)
+0734:             break_even_active = bool(
+0735:                 int(position.get("break_even_active", 0) or 0)
+0736:             )
+0737:             trailing_active = bool(
+0738:                 int(position.get("trailing_active", 0) or 0)
+0739:             )
+0740:             target1_completed = bool(
+0741:                 int(position.get("target1_completed", 0) or 0)
+0742:             )
+0743: 
+0744:             with self.database.connect() as connection:
+0745:                 connection.execute(
+0746:                     """
+0747:                     UPDATE positions
+0748:                     SET highest_price = CASE
+0749:                             WHEN highest_price IS NULL OR ? > highest_price
+0750:                             THEN ? ELSE highest_price END,
+0751:                         lowest_price = CASE
+0752:                             WHEN lowest_price IS NULL OR ? < lowest_price
+0753:                             THEN ? ELSE lowest_price END,
+0754:                         initial_quantity = COALESCE(initial_quantity, quantity)
+0755:                     WHERE id = ?
+0756:                       AND status = 'OPEN'
+0757:                       AND account_id = ?
+0758:                     """,
+0759:                     (
+0760:                         current_price,
+0761:                         current_price,
+0762:                         current_price,
+0763:                         current_price,
+0764:                         position_id,
+0765:                         self.account_id,
+0766:                     ),
+0767:                 )
+0768: 
+0769:                 if (
+0770:                     not target1_completed
+0771:                     and target1 > 0
+0772:                     and current_price >= target1
+0773:                     and quantity > 0
+0774:                 ):
+0775:                     sell_quantity = min(
+0776:                         quantity,
+0777:                         initial_quantity * self.config.target1_sell_ratio,
+0778:                     )
+0779:                     remaining_quantity = max(
+0780:                         0.0,
+0781:                         quantity - sell_quantity,
+0782:                     )
+0783:                     gross_value = sell_quantity * current_price
+0784:                     commission = gross_value * self.config.commission_rate
+0785:                     net_value = gross_value - commission
+0786:                     realized_pnl = (
+0787:                         (current_price - entry_price) * sell_quantity
+0788:                         - commission
+0789:                     )
+0790: 
+0791:                     connection.execute(
+0792:                         """
+0793:                         UPDATE positions
+0794:                         SET quantity = ?,
+0795:                             target1_completed = 1
+0796:                         WHERE id = ?
+0797:                           AND status = 'OPEN'
+0798:                           AND account_id = ?
+0799:                         """,
+0800:                         (
+0801:                             remaining_quantity,
+0802:                             position_id,
+0803:                             self.account_id,
+0804:                         ),
+0805:                     )
+0806: 
+0807:                     connection.execute(
+0808:                         """
+0809:                         UPDATE accounts
+0810:                         SET cash_balance = cash_balance + ?,
+0811:                             updated_at = ?
+0812:                         WHERE id = ?
+0813:                         """,
+0814:                         (
+0815:                             net_value,
+0816:                             self._now(),
+0817:                             self.account_id,
+0818:                         ),
+0819:                     )
+0820: 
+0821:                     connection.execute(
+0822:                         """
+0823:                         INSERT INTO system_events (
+0824:                             created_at,
+0825:                             event_type,
+0826:                             message
+0827:                         )
+0828:                         VALUES (?, 'ROBOT_TARGET1_PARTIAL', ?)
+0829:                         """,
+0830:                         (
+0831:                             self._now(),
+0832:                             (
+0833:                                 f"{self.market} | {symbol} hedef 1 kısmi satış | "
+0834:                                 f"satılan={sell_quantity:.8f} | "
+0835:                                 f"kalan={remaining_quantity:.8f} | "
+0836:                                 f"fiyat={current_price:.4f} | "
+0837:                                 f"pnl={realized_pnl:.2f}"
+0838:                             ),
+0839:                         ),
+0840:                     )
+0841: 
+0842:                     quantity = remaining_quantity
+0843:                     target1_completed = True
+0844: 
+0845:                     actions.append(
+0846:                         {
+0847:                             "action": "PARTIAL_SELL",
+0848:                             "symbol": symbol,
+0849:                             "position_id": position_id,
+0850:                             "quantity": sell_quantity,
+0851:                             "remaining_quantity": remaining_quantity,
+0852:                             "price": current_price,
+0853:                             "commission": commission,
+0854:                             "realized_pnl": realized_pnl,
+0855:                             "reason": "HEDEF 1 KISMİ SATIŞ",
+0856:                         }
+0857:                     )
+0858: 
+0859:                 trigger_price = entry_price * (
+0860:                     1.0 + self.config.break_even_trigger_pct
+0861:                 )
+0862:                 break_even_stop = entry_price * (
+0863:                     1.0 + self.config.break_even_buffer_pct
+0864:                 )
+0865: 
+0866:                 if (
+0867:                     quantity > 0
+0868:                     and not break_even_active
+0869:                     and current_price >= trigger_price
+0870:                     and break_even_stop > stop_price
+0871:                 ):
+0872:                     connection.execute(
+0873:                         """
+0874:                         UPDATE positions
+0875:                         SET stop_price = ?,
+0876:                             break_even_active = 1
+0877:                         WHERE id = ?
+0878:                           AND status = 'OPEN'
+0879:                           AND account_id = ?
+0880:                         """,
+0881:                         (
+0882:                             break_even_stop,
+0883:                             position_id,
+0884:                             self.account_id,
+0885:                         ),
+0886:                     )
+0887:                     connection.execute(
+0888:                         """
+0889:                         INSERT INTO system_events (
+0890:                             created_at,
+0891:                             event_type,
+0892:                             message
+0893:                         )
+0894:                         VALUES (?, 'ROBOT_BREAK_EVEN', ?)
+0895:                         """,
+0896:                         (
+0897:                             self._now(),
+0898:                             (
+0899:                                 f"{self.market} | {symbol} break-even aktif | "
+0900:                                 f"fiyat={current_price:.4f} | "
+0901:                                 f"yeni_stop={break_even_stop:.4f}"
+0902:                             ),
+0903:                         ),
+0904:                     )
+0905:                     stop_price = break_even_stop
+0906:                     break_even_active = True
+0907: 
+0908:                 trailing_stop = highest_price * (
+0909:                     1.0 - self.config.trailing_stop_pct
+0910:                 )
+0911: 
+0912:                 if (
+0913:                     quantity > 0
+0914:                     and break_even_active
+0915:                     and trailing_stop > stop_price
+0916:                 ):
+0917:                     connection.execute(
+0918:                         """
+0919:                         UPDATE positions
+0920:                         SET stop_price = ?,
+0921:                             trailing_active = 1
+0922:                         WHERE id = ?
+0923:                           AND status = 'OPEN'
+0924:                           AND account_id = ?
+0925:                         """,
+0926:                         (
+0927:                             trailing_stop,
+0928:                             position_id,
+0929:                             self.account_id,
+0930:                         ),
+0931:                     )
+0932:                     connection.execute(
+0933:                         """
+0934:                         INSERT INTO system_events (
+0935:                             created_at,
+0936:                             event_type,
+0937:                             message
+0938:                         )
+0939:                         VALUES (?, 'ROBOT_TRAILING', ?)
+0940:                         """,
+0941:                         (
+0942:                             self._now(),
+0943:                             (
+0944:                                 f"{self.market} | {symbol} trailing stop güncellendi | "
+0945:                                 f"zirve={highest_price:.4f} | "
+0946:                                 f"yeni_stop={trailing_stop:.4f}"
+0947:                             ),
+0948:                         ),
+0949:                     )
+0950:                     stop_price = trailing_stop
+0951:                     trailing_active = True
+0952: 
+0953:                 connection.commit()
+0954: 
+0955:             if quantity <= 0:
+0956:                 continue
+0957: 
+0958:             if stop_price > 0 and current_price <= stop_price:
+0959:                 if trailing_active:
+0960:                     exit_reason = "TRAILING STOP"
+0961:                 elif break_even_active and stop_price >= entry_price:
+0962:                     exit_reason = "BREAK EVEN"
+0963:                 else:
+0964:                     exit_reason = "STOP"
+0965: 
+0966:                 actions.append(
+0967:                     self.close_position(
+0968:                         position_id,
+0969:                         current_price,
+0970:                         exit_reason,
+0971:                     )
+0972:                 )
+0973: 
+0974:             elif target2 > 0 and current_price >= target2:
+0975:                 actions.append(
+0976:                     self.close_position(
+0977:                         position_id,
+0978:                         current_price,
+0979:                         "HEDEF 2",
+0980:                     )
+0981:                 )
+0982: 
+0983:             else:
+0984:                 signal = latest_signals.get(symbol, {})
+0985:                 smart_exit = evaluate_smart_exit(
+0986:                     entry_price=entry_price,
+0987:                     current_price=current_price,
+0988:                     current_rsi=signal.get("rsi"),
+0989:                     previous_rsi=signal.get("previous_rsi"),
+0990:                     macd_hist=signal.get("macd_hist"),
+0991:                     close_price=signal.get("close", current_price),
+0992:                     ema20=signal.get("ema20"),
+0993:                     volume_ratio=signal.get("volume_ratio"),
+0994:                     current_adx=signal.get("adx"),
+0995:                     previous_adx=signal.get("previous_adx"),
+0996:                 )
+0997: 
+0998:                 if smart_exit.should_exit:
+0999:                     reason_text = " | ".join(smart_exit.reasons)
+1000: 
+1001:                     with self.database.connect() as connection:
+1002:                         connection.execute(
+1003:                             """
+1004:                             INSERT INTO system_events (
+1005:                                 created_at, event_type, message
+1006:                             )
+1007:                             VALUES (?, 'ROBOT_SMART_EXIT', ?)
+1008:                             """,
+1009:                             (
+1010:                                 self._now(),
+1011:                                 (
+1012:                                     f"{self.market} | {symbol} akıllı çıkış | "
+1013:                                     f"puan={smart_exit.score} | "
+1014:                                     f"onay={smart_exit.confirmations} | "
+1015:                                     f"kar=%{smart_exit.profit_pct:.2f} | "
+1016:                                     f"neden={reason_text}"
+1017:                                 ),
+1018:                             ),
+1019:                         )
+1020:                         connection.commit()
+1021: 
+1022:                     actions.append(
+1023:                         self.close_position(
+1024:                             position_id,
+1025:                             current_price,
+1026:                             "AKILLI ÇIKIŞ",
+1027:                         )
+1028:                     )
+1029: 
+1030:         return actions
+
+[process_open_positions çevresi]
+0701:     def process_open_positions(
+0702:         self,
+0703:         latest_prices: dict[str, float],
+0704:         latest_signals: dict[str, dict[str, Any]] | None = None,
+0705:     ) -> list[dict[str, Any]]:
+0706:         actions: list[dict[str, Any]] = []
+0707:         latest_signals = latest_signals or {}
+0708:         positions = self.get_open_positions()
+0709: 
+0710:         if positions.empty:
+0711:             return actions
+0712: 
+0713:         for _, position in positions.iterrows():
+0714:             symbol = str(position["symbol"])
+0715:             current_price = latest_prices.get(symbol)
+0716: 
+0717:             if current_price is None:
+0718:                 continue
+0719: 
+0720:             current_price = float(current_price)
+0721:             position_id = int(position["id"])
+0722:             entry_price = float(position["entry_price"])
+0723:             quantity = float(position["quantity"])
+0724:             initial_quantity = float(
+0725:                 position.get("initial_quantity", quantity) or quantity
+0726:             )
+0727:             stop_price = float(position["stop_price"] or 0)
+0728:             target1 = float(position["target1"] or 0)
+0729:             target2 = float(position["target2"] or 0)
+0730:             stored_highest = float(
+0731:                 position.get("highest_price", entry_price) or entry_price
+0732:             )
+0733:             highest_price = max(stored_highest, current_price)
+0734:             break_even_active = bool(
+0735:                 int(position.get("break_even_active", 0) or 0)
+0736:             )
+0737:             trailing_active = bool(
+0738:                 int(position.get("trailing_active", 0) or 0)
+0739:             )
+0740:             target1_completed = bool(
+0741:                 int(position.get("target1_completed", 0) or 0)
+0742:             )
+0743: 
+0744:             with self.database.connect() as connection:
+0745:                 connection.execute(
+0746:                     """
+0747:                     UPDATE positions
+0748:                     SET highest_price = CASE
+0749:                             WHEN highest_price IS NULL OR ? > highest_price
+0750:                             THEN ? ELSE highest_price END,
+0751:                         lowest_price = CASE
+0752:                             WHEN lowest_price IS NULL OR ? < lowest_price
+0753:                             THEN ? ELSE lowest_price END,
+0754:                         initial_quantity = COALESCE(initial_quantity, quantity)
+0755:                     WHERE id = ?
+0756:                       AND status = 'OPEN'
+0757:                       AND account_id = ?
+0758:                     """,
+0759:                     (
+0760:                         current_price,
+0761:                         current_price,
+0762:                         current_price,
+0763:                         current_price,
+0764:                         position_id,
+0765:                         self.account_id,
+0766:                     ),
+0767:                 )
+0768: 
+0769:                 if (
+0770:                     not target1_completed
+0771:                     and target1 > 0
+0772:                     and current_price >= target1
+0773:                     and quantity > 0
+0774:                 ):
+0775:                     sell_quantity = min(
+0776:                         quantity,
+0777:                         initial_quantity * self.config.target1_sell_ratio,
+0778:                     )
+0779:                     remaining_quantity = max(
+0780:                         0.0,
+0781:                         quantity - sell_quantity,
+0782:                     )
+0783:                     gross_value = sell_quantity * current_price
+0784:                     commission = gross_value * self.config.commission_rate
+0785:                     net_value = gross_value - commission
+0786:                     realized_pnl = (
+0787:                         (current_price - entry_price) * sell_quantity
+0788:                         - commission
+0789:                     )
+0790: 
+0791:                     connection.execute(
+0792:                         """
+0793:                         UPDATE positions
+0794:                         SET quantity = ?,
+0795:                             target1_completed = 1
+0796:                         WHERE id = ?
+0797:                           AND status = 'OPEN'
+0798:                           AND account_id = ?
+0799:                         """,
+0800:                         (
+0801:                             remaining_quantity,
+0802:                             position_id,
+0803:                             self.account_id,
+0804:                         ),
+0805:                     )
+0806: 
+0807:                     connection.execute(
+0808:                         """
+0809:                         UPDATE accounts
+0810:                         SET cash_balance = cash_balance + ?,
+0811:                             updated_at = ?
+0812:                         WHERE id = ?
+0813:                         """,
+0814:                         (
+0815:                             net_value,
+0816:                             self._now(),
+0817:                             self.account_id,
+0818:                         ),
+0819:                     )
+0820: 
+0821:                     connection.execute(
+0822:                         """
+0823:                         INSERT INTO system_events (
+0824:                             created_at,
+0825:                             event_type,
+0826:                             message
+0827:                         )
+0828:                         VALUES (?, 'ROBOT_TARGET1_PARTIAL', ?)
+0829:                         """,
+0830:                         (
+0831:                             self._now(),
+0832:                             (
+0833:                                 f"{self.market} | {symbol} hedef 1 kısmi satış | "
+0834:                                 f"satılan={sell_quantity:.8f} | "
+0835:                                 f"kalan={remaining_quantity:.8f} | "
+0836:                                 f"fiyat={current_price:.4f} | "
+0837:                                 f"pnl={realized_pnl:.2f}"
+0838:                             ),
+0839:                         ),
+0840:                     )
+0841: 
+0842:                     quantity = remaining_quantity
+0843:                     target1_completed = True
+0844: 
+0845:                     actions.append(
+0846:                         {
+0847:                             "action": "PARTIAL_SELL",
+0848:                             "symbol": symbol,
+0849:                             "position_id": position_id,
+0850:                             "quantity": sell_quantity,
+0851:                             "remaining_quantity": remaining_quantity,
+0852:                             "price": current_price,
+0853:                             "commission": commission,
+0854:                             "realized_pnl": realized_pnl,
+0855:                             "reason": "HEDEF 1 KISMİ SATIŞ",
+0856:                         }
+0857:                     )
+0858: 
+0859:                 trigger_price = entry_price * (
+0860:                     1.0 + self.config.break_even_trigger_pct
+0861:                 )
+0862:                 break_even_stop = entry_price * (
+0863:                     1.0 + self.config.break_even_buffer_pct
+0864:                 )
+0865: 
+0866:                 if (
+0867:                     quantity > 0
+0868:                     and not break_even_active
+0869:                     and current_price >= trigger_price
+0870:                     and break_even_stop > stop_price
+0871:                 ):
+0872:                     connection.execute(
+0873:                         """
+0874:                         UPDATE positions
+0875:                         SET stop_price = ?,
+0876:                             break_even_active = 1
+0877:                         WHERE id = ?
+0878:                           AND status = 'OPEN'
+0879:                           AND account_id = ?
+0880:                         """,
+0881:                         (
+0882:                             break_even_stop,
+0883:                             position_id,
+0884:                             self.account_id,
+0885:                         ),
+0886:                     )
+0887:                     connection.execute(
+0888:                         """
+0889:                         INSERT INTO system_events (
+0890:                             created_at,
+0891:                             event_type,
+0892:                             message
+0893:                         )
+0894:                         VALUES (?, 'ROBOT_BREAK_EVEN', ?)
+0895:                         """,
+0896:                         (
+0897:                             self._now(),
+0898:                             (
+0899:                                 f"{self.market} | {symbol} break-even aktif | "
+0900:                                 f"fiyat={current_price:.4f} | "
+0901:                                 f"yeni_stop={break_even_stop:.4f}"
+0902:                             ),
+0903:                         ),
+0904:                     )
+0905:                     stop_price = break_even_stop
+0906:                     break_even_active = True
+0907: 
+0908:                 trailing_stop = highest_price * (
+0909:                     1.0 - self.config.trailing_stop_pct
+0910:                 )
+0911: 
+0912:                 if (
+0913:                     quantity > 0
+0914:                     and break_even_active
+0915:                     and trailing_stop > stop_price
+0916:                 ):
+0917:                     connection.execute(
+0918:                         """
+0919:                         UPDATE positions
+0920:                         SET stop_price = ?,
+0921:                             trailing_active = 1
+0922:                         WHERE id = ?
+0923:                           AND status = 'OPEN'
+0924:                           AND account_id = ?
+0925:                         """,
+0926:                         (
+0927:                             trailing_stop,
+0928:                             position_id,
+0929:                             self.account_id,
+0930:                         ),
+0931:                     )
+0932:                     connection.execute(
+0933:                         """
+0934:                         INSERT INTO system_events (
+0935:                             created_at,
+0936:                             event_type,
+0937:                             message
+0938:                         )
+0939:                         VALUES (?, 'ROBOT_TRAILING', ?)
+0940:                         """,
+0941:                         (
+0942:                             self._now(),
+0943:                             (
+0944:                                 f"{self.market} | {symbol} trailing stop güncellendi | "
+0945:                                 f"zirve={highest_price:.4f} | "
+0946:                                 f"yeni_stop={trailing_stop:.4f}"
+0947:                             ),
+0948:                         ),
+0949:                     )
+0950:                     stop_price = trailing_stop
+0951:                     trailing_active = True
+0952: 
+0953:                 connection.commit()
+0954: 
+0955:             if quantity <= 0:
+0956:                 continue
+0957: 
+0958:             if stop_price > 0 and current_price <= stop_price:
+0959:                 if trailing_active:
+0960:                     exit_reason = "TRAILING STOP"
+
+
+DOSYA: engine\smart_exit.py
+------------------------------------------------------------------------
+
+[ClassDef: SmartExitConfig]
+0008: class SmartExitConfig:
+0009:     enabled: bool = True
+0010:     min_profit_pct: float = 0.50
+0011:     exit_score_threshold: int = 50
+0012:     watch_score_threshold: int = 40
+0013:     min_confirmations: int = 2
+0014: 
+0015:     rsi_overbought_level: float = 70.0
+0016:     weak_volume_ratio: float = 0.70
+0017: 
+0018:     rsi_reversal_points: int = 25
+0019:     macd_negative_points: int = 25
+0020:     ema20_break_points: int = 20
+0021:     weak_volume_points: int = 15
+0022:     adx_weakening_points: int = 15
+
+[ClassDef: SmartExitResult]
+0026: class SmartExitResult:
+0027:     should_exit: bool
+0028:     status: str
+0029:     score: int
+0030:     confirmations: int
+0031:     reasons: tuple[str, ...]
+0032:     profit_pct: float
+0033: 
+0034:     def as_dict(self) -> dict[str, Any]:
+0035:         return {
+0036:             "should_exit": self.should_exit,
+0037:             "status": self.status,
+0038:             "score": self.score,
+0039:             "confirmations": self.confirmations,
+0040:             "reasons": list(self.reasons),
+0041:             "profit_pct": self.profit_pct,
+0042:         }
+
+[FunctionDef: evaluate_smart_exit]
+0045: def evaluate_smart_exit(
+0046:     *,
+0047:     entry_price: float,
+0048:     current_price: float,
+0049:     current_rsi: float | None,
+0050:     previous_rsi: float | None,
+0051:     macd_hist: float | None,
+0052:     close_price: float | None,
+0053:     ema20: float | None,
+0054:     volume_ratio: float | None,
+0055:     current_adx: float | None,
+0056:     previous_adx: float | None,
+0057:     config: SmartExitConfig | None = None,
+0058: ) -> SmartExitResult:
+0059:     cfg = config or SmartExitConfig()
+0060: 
+0061:     if entry_price <= 0:
+0062:         raise ValueError("entry_price sıfırdan büyük olmalıdır.")
+0063: 
+0064:     profit_pct = ((current_price / entry_price) - 1.0) * 100.0
+0065: 
+0066:     if not cfg.enabled:
+0067:         return SmartExitResult(
+0068:             should_exit=False,
+0069:             status="DISABLED",
+0070:             score=0,
+0071:             confirmations=0,
+0072:             reasons=(),
+0073:             profit_pct=profit_pct,
+0074:         )
+0075: 
+0076:     if profit_pct < cfg.min_profit_pct:
+0077:         return SmartExitResult(
+0078:             should_exit=False,
+0079:             status="PROFIT_FILTER",
+0080:             score=0,
+0081:             confirmations=0,
+0082:             reasons=(),
+0083:             profit_pct=profit_pct,
+0084:         )
+0085: 
+0086:     score = 0
+0087:     reasons: list[str] = []
+0088: 
+0089:     if (
+0090:         previous_rsi is not None
+0091:         and current_rsi is not None
+0092:         and previous_rsi >= cfg.rsi_overbought_level
+0093:         and current_rsi < previous_rsi
+0094:     ):
+0095:         score += cfg.rsi_reversal_points
+0096:         reasons.append("RSI aşırı alımdan aşağı döndü")
+0097: 
+0098:     if macd_hist is not None and macd_hist < 0:
+0099:         score += cfg.macd_negative_points
+0100:         reasons.append("MACD histogram negatif")
+0101: 
+0102:     if (
+0103:         close_price is not None
+0104:         and ema20 is not None
+0105:         and close_price < ema20
+0106:     ):
+0107:         score += cfg.ema20_break_points
+0108:         reasons.append("Fiyat EMA20 altında")
+0109: 
+0110:     if (
+0111:         volume_ratio is not None
+0112:         and volume_ratio < cfg.weak_volume_ratio
+0113:     ):
+0114:         score += cfg.weak_volume_points
+0115:         reasons.append("Hacim zayıfladı")
+0116: 
+0117:     if (
+0118:         current_adx is not None
+0119:         and previous_adx is not None
+0120:         and current_adx < previous_adx
+0121:     ):
+0122:         score += cfg.adx_weakening_points
+0123:         reasons.append("ADX zayıflıyor")
+0124: 
+0125:     confirmations = len(reasons)
+0126:     should_exit = (
+0127:         score >= cfg.exit_score_threshold
+0128:         and confirmations >= cfg.min_confirmations
+0129:     )
+0130: 
+0131:     if should_exit:
+0132:         status = "SMART_EXIT"
+0133:     elif score >= cfg.watch_score_threshold:
+0134:         status = "WATCH"
+0135:     else:
+0136:         status = "HOLD"
+0137: 
+0138:     return SmartExitResult(
+0139:         should_exit=should_exit,
+0140:         status=status,
+0141:         score=score,
+0142:         confirmations=confirmations,
+0143:         reasons=tuple(reasons),
+0144:         profit_pct=profit_pct,
+0145:     )
+
+
+DOSYA: engine\background_orchestrator.py
+------------------------------------------------------------------------
+İlgili fonksiyon veya sınıf bulunamadı.
+
+
+Aranan öncelik sırası:
+1. Hard stop
+2. Break-even stop
+3. Trailing stop
+4. Hedef 1 partial
+5. Hedef 2
+6. Smart Exit
+7. Zaman bazlı çıkış
+
+Bu rapor hiçbir proje dosyasını değiştirmedi.

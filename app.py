@@ -16,6 +16,7 @@ from ui.background_page import render_background_status
 from ui.dashboard_page import render_dashboard
 from ui.diagnostics_page import render_diagnostics
 from ui.financial_analysis_page import render_financial_analysis
+from ui.advanced_chart_page import render_advanced_chart
 from ui.relative_strength_page import render_relative_strength
 from ui.money_flow_page import render_money_flow
 from ui.robot_page import render_robot
@@ -59,6 +60,7 @@ page = st.sidebar.radio(
         "Paranın Yönü",
         "Kripto",
         "Emtia",
+        "Gelişmiş Grafik",
         "Bilanço ve Yapay Zekâ Analizi",
         "Strateji Laboratuvarı",
         "Geçmiş Strateji Testi",
@@ -94,6 +96,9 @@ elif page == "Kripto":
 
 elif page == "Emtia":
     render_commodity(data_engine)
+
+elif page == "Gelişmiş Grafik":
+    render_advanced_chart(data_engine, watchlists, database)
 
 elif page == "Bilanço ve Yapay Zekâ Analizi":
     render_financial_analysis()

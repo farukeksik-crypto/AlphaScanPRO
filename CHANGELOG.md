@@ -68,3 +68,16 @@ Bu dosyada AlphaScan PRO projesinde yapılan önemli geliştirmeler sprint bazı
 - Sanal portföy sistemi eklendi.
 - İşlem geçmişi eklendi.
 - Katılım hisseleri listesi oluşturuldu.
+
+## Sprint 10.11A - Gelişmiş Grafik
+- Kripto, BIST ve emtia için gelişmiş grafik sayfası eklendi.
+- Mum grafik, EMA20/50/200 ve hacim görünümü eklendi.
+- Zaman dilimi, sembol seçimi, yakınlaştırma ve veri yenileme desteği eklendi.
+- Robot işlem işaretleri Sprint 10.11B için ayrıldı.
+
+## Sprint 10.11B - Robot İşlemleri Grafik Üzerinde
+- Robot BUY ve SELL işlemleri gelişmiş grafik üzerine eklendi.
+- Açık pozisyonların STOP, TP1 ve TP2 seviyeleri gösterildi.
+- Aynı pozisyona ait giriş ve çıkışlar bağlantı çizgisiyle eşleştirildi.
+- Hover açıklamalarına işlem nedeni, fiyat ve kâr/zarar bilgileri eklendi.
+- Seçili sembol için robot işlem özeti ve son 50 işlem tablosu eklendi.

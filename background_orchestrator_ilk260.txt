@@ -1,0 +1,261 @@
+﻿   1: from __future__ import annotations
+   2: 
+   3: from datetime import datetime
+   4: from typing import Any
+   5: 
+   6: from config.market_universes import get_crypto_pairs
+   7: from engine.analysis_engine import analyze_signal_payload
+   8: from engine.robot_engine import RobotConfig, RobotEngine
+   9: from engine.market_accounts import account_for_market, normalize_market
+  10: from database.robot_settings_repository import load_robot_settings
+  11: from engine.notification_manager import NotificationManager
+  12: from engine.scanner import scan_commodities, scan_crypto, scan_yahoo_items
+  13: 
+  14: 
+  15: class BackgroundOrchestrator:
+  16:     def __init__(self, database, data_engine, watchlists: dict, settings, logger):
+  17:         self.database = database
+  18:         self.data_engine = data_engine
+  19:         self.watchlists = watchlists
+  20:         self.settings = settings
+  21:         self.logger = logger
+  22:         self.notifier = NotificationManager(database, settings, logger)
+  23:         self.robot = self._robot_for_market("BIST")
+  24: 
+  25:     def _robot_for_market(self, market: str) -> RobotEngine:
+  26:         normalized = normalize_market(market)
+  27:         account = account_for_market(normalized)
+  28:         saved = load_robot_settings(
+  29:             self.database,
+  30:             account_id=account["account_id"],
+  31:             market=normalized,
+  32:         )
+  33:         return RobotEngine(
+  34:             self.database,
+  35:             RobotConfig(
+  36:                 starting_balance=float(account["starting_balance"]),
+  37:                 max_positions=int(saved["max_positions"]),
+  38:                 position_size_pct=float(saved["position_size_pct"]),
+  39:                 minimum_score=float(saved["minimum_score"]),
+  40:                 minimum_confidence=float(saved["minimum_confidence"]),
+  41:                 minimum_probability=float(saved["minimum_probability"]),
+  42:                 allowed_decisions=tuple(saved["allowed_decisions"]),
+  43:                 allowed_risks=tuple(saved["allowed_risks"]),
+  44:                 strategy_profile=str(saved["strategy_profile"]),
+  45:                 market=normalized,
+  46:                 account_id=account["account_id"],
+  47:                 currency=account["currency"],
+  48:             ),
+  49:         )
+  50: 
+  51:     @staticmethod
+  52:     def _now() -> str:
+  53:         return datetime.now().isoformat(timespec="seconds")
+  54: 
+  55:     def _start_run(self, market: str, universe: str) -> int:
+  56:         with self.database.connect() as connection:
+  57:             cursor = connection.execute(
+  58:                 """
+  59:                 INSERT INTO background_runs(market, universe, started_at, status)
+  60:                 VALUES (?, ?, ?, 'RUNNING')
+  61:                 """,
+  62:                 (market, universe, self._now()),
+  63:             )
+  64:             connection.commit()
+  65:             return int(cursor.lastrowid)
+  66: 
+  67:     def _finish_run(self, run_id: int, *, status: str, scanned: int = 0,
+  68:                     failures: int = 0, actions: int = 0, error: str = "") -> None:
+  69:         with self.database.connect() as connection:
+  70:             connection.execute(
+  71:                 """
+  72:                 UPDATE background_runs
+  73:                 SET finished_at = ?, status = ?, scanned_count = ?,
+  74:                     failure_count = ?, action_count = ?, error_message = ?
+  75:                 WHERE id = ?
+  76:                 """,
+  77:                 (self._now(), status, scanned, failures, actions, error, run_id),
+  78:             )
+  79:             connection.commit()
+  80: 
+  81:     @staticmethod
+  82:     def _normalize(rows: list[dict[str, Any]], market: str, universe: str) -> list[dict[str, Any]]:
+  83:         normalized = []
+  84:         for row in rows:
+  85:             item = dict(row)
+  86:             symbol = str(item.get("Kod") or item.get("Coin") or item.get("Emtia") or "").strip()
+  87:             name = str(item.get("Hisse") or item.get("Coin") or item.get("Emtia") or symbol)
+  88:             analysis = analyze_signal_payload(item)
+  89:             item.update({
+  90:                 "Kod": symbol,
+  91:                 "Ad": name,
+  92:                 "Piyasa": market,
+  93:                 "Evren": universe,
+  94:                 "GÃ¼ven": analysis["confidence"],
+  95:                 "GÃ¼ven Durumu": analysis["confidence_label"],
+  96:                 "GÃ¼ven YÄ±ldÄ±zÄ±": analysis["confidence_stars"],
+  97:                 "Risk": analysis["risk_level"],
+  98:                 "BaÅŸarÄ± GÃ¶stergesi %": analysis["probability"],
+  99:                 "AI Analizi": analysis["summary"],
+ 100:             })
+ 101:             normalized.append(item)
+ 102:         return normalized
+ 103: 
+ 104:     def _save_results(self, run_id: int, rows: list[dict[str, Any]], market: str, universe: str) -> None:
+ 105:         created_at = self._now()
+ 106:         limited = rows[: self.settings.max_saved_rows_per_run]
+ 107:         with self.database.connect() as connection:
+ 108:             connection.executemany(
+ 109:                 """
+ 110:                 INSERT INTO background_scan_results(
+ 111:                     run_id, market, universe, symbol, name, decision, score,
+ 112:                     price, stop_price, target1, target2, confidence,
+ 113:                     confidence_label, risk_level, probability, reason, created_at
+ 114:                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 115:                 """,
+ 116:                 [(
+ 117:                     run_id, market, universe, row.get("Kod", ""), row.get("Ad", ""),
+ 118:                     row.get("Karar", ""), float(row.get("Puan", 0) or 0),
+ 119:                     float(row.get("Fiyat", 0) or 0), float(row.get("Stop", 0) or 0),
+ 120:                     float(row.get("Hedef 1", 0) or 0), float(row.get("Hedef 2", 0) or 0),
+ 121:                     float(row.get("GÃ¼ven", 0) or 0), row.get("GÃ¼ven Durumu", ""),
+ 122:                     row.get("Risk", ""), float(row.get("BaÅŸarÄ± GÃ¶stergesi %", 0) or 0),
+ 123:                     row.get("AI Analizi", row.get("Neden", "")), created_at,
+ 124:                 ) for row in limited],
+ 125:             )
+ 126:             connection.commit()
+ 127: 
+ 128:     def _candidate_diagnostics(self, rows: list[dict[str, Any]], market: str = "BIST", limit: int = 8) -> list[str]:
+ 129:         diagnostics: list[str] = []
+ 130:         ranked = sorted(rows, key=lambda row: float(row.get("Puan", 0) or 0), reverse=True)
+ 131:         robot = self._robot_for_market(market)
+ 132:         state = robot.get_state()
+ 133:         for row in ranked[:limit]:
+ 134:             symbol = str(row.get("Kod", "?"))
+ 135:             decision = str(row.get("Karar", ""))
+ 136:             score = float(row.get("Puan", 0) or 0)
+ 137:             confidence = float(row.get("GÃ¼ven", 0) or 0)
+ 138:             probability = float(row.get("BaÅŸarÄ± GÃ¶stergesi %", 0) or 0)
+ 139:             risk = str(row.get("Risk", "")).strip()
+ 140:             reasons: list[str] = []
+ 141:             if not state["enabled"]:
+ 142:                 reasons.append("robot kapalÄ±")
+ 143:             if decision not in robot.config.allowed_decisions:
+ 144:                 reasons.append(f"karar={decision or 'yok'}")
+ 145:             if score < robot.config.minimum_score:
+ 146:                 reasons.append(f"puan {score:.0f} < {robot.config.minimum_score:.0f}")
+ 147:             if confidence < robot.config.minimum_confidence:
+ 148:                 reasons.append(f"gÃ¼ven {confidence:.0f} < {robot.config.minimum_confidence:.0f}")
+ 149:             if probability < robot.config.minimum_probability:
+ 150:                 reasons.append(f"olasÄ±lÄ±k %{probability:.0f} < %{robot.config.minimum_probability:.0f}")
+ 151:             if robot.config.allowed_risks and risk not in robot.config.allowed_risks:
+ 152:                 reasons.append(f"risk={risk or 'yok'} kabul edilmiyor")
+ 153:             if robot.has_open_position(symbol):
+ 154:                 reasons.append("aÃ§Ä±k pozisyon var")
+ 155:             if not reasons:
+ 156:                 reasons.append("iÅŸleme uygun aday")
+ 157:             diagnostics.append(f"{symbol}: " + ", ".join(reasons))
+ 158:         return diagnostics
+ 159: 
+ 160:     def _process_robot(self, rows: list[dict[str, Any]], market: str, universe: str, enabled: bool):
+ 161:         robot = self._robot_for_market(market)
+ 162:         latest_prices = {
+ 163:             str(row.get("Kod", "")): float(row.get("Fiyat", 0) or 0)
+ 164:             for row in rows if row.get("Kod") and float(row.get("Fiyat", 0) or 0) > 0
+ 165:         }
+ 166:         latest_signals = {
+ 167:             str(row.get("Kod", "")): {
+ 168:                 "rsi": float(row.get("RSI", 0) or 0),
+ 169:                 "previous_rsi": float(row.get("Previous_RSI", 0) or 0),
+ 170:                 "macd_hist": float(row.get("MACD_HIST", 0) or 0),
+ 171:                 "close": float(row.get("Close", row.get("Fiyat", 0)) or 0),
+ 172:                 "ema20": float(row.get("EMA20", 0) or 0),
+ 173:                 "atr": float(row.get("ATR", 0) or 0),
+ 174:                 "volume_ratio": float(row.get("Volume_Ratio", 0) or 0),
+ 175:                 "adx": float(row.get("ADX", 0) or 0),
+ 176:                 "previous_adx": float(row.get("Previous_ADX", 0) or 0),
+ 177:             }
+ 178:             for row in rows
+ 179:             if row.get("Kod")
+ 180:         }
+ 181:         actions = robot.process_open_positions(
+ 182:             latest_prices,
+ 183:             latest_signals=latest_signals,
+ 184:         )
+ 185:         if enabled:
+ 186:             actions.extend(robot.process_scanner_results(
+ 187:                 rows, market=normalize_market(market), universe=universe,
+ 188:                 strategy_profile=f"Background {normalize_market(market)} V1"
+ 189:             ))
+ 190:         return actions
+ 191: 
+ 192:     def _notify_actions(self, market: str, universe: str, actions: list[dict[str, Any]]) -> None:
+ 193:         successful = [action for action in actions if action.get("ok")]
+ 194:         for action in successful:
+ 195:             symbol = str(action.get("symbol", ""))
+ 196:             if "profit" in action:
+ 197:                 profit = float(action.get("profit", 0) or 0)
+ 198:                 self.notifier.send(
+ 199:                     "ROBOT_SELL",
+ 200:                     f"AlphaScan satÄ±ÅŸ: {symbol}",
+ 201:                     f"{market}/{universe} sanal pozisyon kapandÄ±. KÃ¢r/Zarar: {profit:,.2f}",
+ 202:                     action,
+ 203:                 )
+ 204:             else:
+ 205:                 score = float(action.get("score", 0) or 0)
+ 206:                 price = float(action.get("price", 0) or 0)
+ 207:                 self.notifier.send(
+ 208:                     "ROBOT_BUY",
+ 209:                     f"AlphaScan alÄ±m: {symbol}",
+ 210:                     f"{market}/{universe} sanal iÅŸlem aÃ§Ä±ldÄ±. Fiyat: {price:.4f} | Puan: {score:.0f}",
+ 211:                     action,
+ 212:                 )
+ 213: 
+ 214:     def _execute(self, market: str, universe: str, scan_callable, robot_enabled: bool) -> dict[str, Any]:
+ 215:         run_id = self._start_run(market, universe)
+ 216:         try:
+ 217:             rows, failures = scan_callable()
+ 218:             rows = self._normalize(rows, market, universe)
+ 219:             self._save_results(run_id, rows, market, universe)
+ 220:             actions = self._process_robot(rows, market, universe, robot_enabled)
+ 221:             successful_actions = [action for action in actions if action.get("ok")]
+ 222:             self._finish_run(run_id, status="SUCCESS", scanned=len(rows), failures=len(failures), actions=len(successful_actions))
+ 223:             self.logger.info("%s/%s tamamlandÄ±: %s sonuÃ§, %s hata, %s robot aksiyonu", market, universe, len(rows), len(failures), len(successful_actions))
+ 224:             if successful_actions:
+ 225:                 self._notify_actions(market, universe, successful_actions)
+ 226:             else:
+ 227:                 diagnostics = self._candidate_diagnostics(rows, market)
+ 228:                 self.logger.info("%s/%s iÅŸlem aÃ§Ä±lmama nedenleri: %s", market, universe, " | ".join(diagnostics))
+ 229:                 if self.settings.notify_no_action:
+ 230:                     self.notifier.send(
+ 231:                         "NO_ACTION",
+ 232:                         f"AlphaScan: {market} tarandÄ±",
+ 233:                         f"{len(rows)} sonuÃ§ incelendi, uygun iÅŸlem bulunamadÄ±.",
+ 234:                         {"market": market, "universe": universe, "diagnostics": diagnostics},
+ 235:                     )
+ 236:             return {"ok": True, "rows": len(rows), "failures": len(failures), "actions": successful_actions}
+ 237:         except Exception as exc:
+ 238:             self._finish_run(run_id, status="ERROR", error=str(exc))
+ 239:             self.logger.exception("%s/%s taramasÄ± baÅŸarÄ±sÄ±z", market, universe)
+ 240:             return {"ok": False, "error": str(exc)}
+ 241: 
+ 242:     def run_bist(self) -> dict[str, Any]:
+ 243:         items = self.watchlists.get(self.settings.bist_universe, [])
+ 244:         if not items and self.settings.bist_universe == "arindirma_0":
+ 245:             items = self.watchlists.get("arindirma_0", [])
+ 246:         return self._execute(
+ 247:             "BIST", self.settings.bist_universe,
+ 248:             lambda: scan_yahoo_items(self.data_engine, items, workers=4),
+ 249:             self.settings.bist.robot_enabled,
+ 250:         )
+ 251: 
+ 252:     def run_crypto(self) -> dict[str, Any]:
+ 253:         pairs = get_crypto_pairs(self.settings.crypto_group)
+ 254:         return self._execute(
+ 255:             "KRIPTO", self.settings.crypto_group,
+ 256:             lambda: scan_crypto(self.data_engine, pairs),
+ 257:             self.settings.crypto.robot_enabled,
+ 258:         )
+ 259: 
+ 260:     def run_commodity(self) -> dict[str, Any]:
+ 261:         return self._execute(

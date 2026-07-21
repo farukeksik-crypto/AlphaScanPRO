@@ -1,43 +1,93 @@
-from engine.trade_intelligence import analyze_closed_trade
+from __future__ import annotations
+
+from engine.trade_intelligence import TradeIntelligenceLogger
 
 
-def test_profitable_trade_produces_metrics():
-    result = analyze_closed_trade(
-        entry_price=100.0,
-        exit_price=108.0,
-        quantity=10.0,
-        total_profit=77.0,
-        opened_at="2026-07-20T10:00:00",
-        closed_at="2026-07-20T14:00:00",
-        highest_price=110.0,
-        lowest_price=98.0,
-        stop_price=95.0,
-        target_price=110.0,
-        technical_score=85.0,
-        confidence_score=80.0,
+def test_open_trade_is_logged(tmp_path) -> None:
+    logger = TradeIntelligenceLogger(tmp_path / "trades.jsonl")
+    trade = logger.open_trade(
+        symbol="BTC/USDT",
+        market="crypto",
+        side="BUY",
+        entry_price=100,
+        quantity=2,
+        entry_reason="AI BUY",
+        ai_score=82,
     )
 
-    assert result.profit_pct == 7.7
-    assert result.holding_minutes == 240.0
-    assert result.mfe_pct == 10.0
-    assert result.mae_pct == -2.0
-    assert result.risk_reward == 2.0
-    assert result.entry_efficiency == 60.0
-    assert result.exit_efficiency == 80.0
-    assert result.trade_grade in {"A+", "A", "B", "C", "D"}
+    events = logger.read_events()
+
+    assert trade.status == "OPEN"
+    assert len(events) == 1
+    assert events[0]["event_type"] == "OPEN"
+    assert events[0]["payload"]["symbol"] == "BTC/USDT"
 
 
-def test_invalid_entry_price_raises():
-    try:
-        analyze_closed_trade(
-            entry_price=0.0,
-            exit_price=10.0,
-            quantity=1.0,
-            total_profit=0.0,
-            opened_at=None,
-            closed_at=None,
-        )
-    except ValueError as exc:
-        assert "entry_price" in str(exc)
-    else:
-        raise AssertionError("ValueError bekleniyordu.")
+def test_close_trade_calculates_profit(tmp_path) -> None:
+    logger = TradeIntelligenceLogger(tmp_path / "trades.jsonl")
+    trade = logger.open_trade(
+        symbol="THYAO",
+        market="bist",
+        side="BUY",
+        entry_price=100,
+        quantity=10,
+        entry_reason="NET AL",
+        entry_time="2026-07-21T10:00:00+00:00",
+    )
+
+    closed = logger.close_trade(
+        trade,
+        exit_price=110,
+        exit_reason="HEDEF",
+        exit_time="2026-07-21T11:30:00+00:00",
+    )
+
+    assert closed.status == "CLOSED"
+    assert closed.pnl == 100
+    assert closed.pnl_pct == 10
+    assert closed.duration_minutes == 90
+
+
+def test_short_trade_profit(tmp_path) -> None:
+    logger = TradeIntelligenceLogger(tmp_path / "trades.jsonl")
+    trade = logger.open_trade(
+        symbol="TEST",
+        market="paper",
+        side="SHORT",
+        entry_price=100,
+        quantity=5,
+        entry_reason="TEST",
+    )
+
+    closed = logger.close_trade(
+        trade,
+        exit_price=90,
+        exit_reason="TARGET",
+    )
+
+    assert closed.pnl == 50
+    assert closed.pnl_pct == 10
+
+
+def test_latest_and_closed_trade_state(tmp_path) -> None:
+    logger = TradeIntelligenceLogger(tmp_path / "trades.jsonl")
+    trade = logger.open_trade(
+        symbol="XAUUSD",
+        market="commodity",
+        side="BUY",
+        entry_price=2000,
+        quantity=1,
+        entry_reason="TREND",
+    )
+    logger.close_trade(
+        trade,
+        exit_price=2025,
+        exit_reason="TRAILING STOP",
+    )
+
+    latest = logger.latest_trade_state(trade.trade_id)
+    closed = logger.closed_trades()
+
+    assert latest is not None
+    assert latest["status"] == "CLOSED"
+    assert len(closed) == 1

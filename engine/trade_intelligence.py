@@ -1,150 +1,285 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import datetime
+import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 
-@dataclass(frozen=True, slots=True)
-class TradeIntelligenceResult:
-    profit_pct: float
-    holding_minutes: float
-    mfe_pct: float
-    mae_pct: float
-    risk_pct: float
-    reward_pct: float
-    risk_reward: float
-    entry_efficiency: float
-    exit_efficiency: float
-    trade_quality_score: float
-    trade_grade: str
+@dataclass
+class TradeRecord:
+    trade_id: str
+    symbol: str
+    market: str
+    side: str
+    entry_time: str
+    entry_price: float
+    quantity: float
+    entry_reason: str
+    ai_score: float | None = None
+    ai_decision: str | None = None
+    ai_confidence: float | None = None
+    technical_score: float | None = None
+    market_regime: str | None = None
+    correlation_score: float | None = None
+    risk_score: float | None = None
+    sector: str | None = None
+    stop_price: float | None = None
+    target_price: float | None = None
+    exit_time: str | None = None
+    exit_price: float | None = None
+    exit_reason: str | None = None
+    pnl: float | None = None
+    pnl_pct: float | None = None
+    duration_minutes: float | None = None
+    status: str = "OPEN"
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def _clamp(value: float, minimum: float = 0.0, maximum: float = 100.0) -> float:
-    return max(minimum, min(maximum, float(value)))
+class TradeIntelligenceLogger:
+    def __init__(self, storage_path: str | Path) -> None:
+        self.storage_path = Path(storage_path)
+        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.storage_path.exists():
+            self.storage_path.write_text("", encoding="utf-8")
 
+    def open_trade(
+        self,
+        *,
+        symbol: str,
+        market: str,
+        side: str,
+        entry_price: float,
+        quantity: float,
+        entry_reason: str,
+        ai_score: float | None = None,
+        ai_decision: str | None = None,
+        ai_confidence: float | None = None,
+        technical_score: float | None = None,
+        market_regime: str | None = None,
+        correlation_score: float | None = None,
+        risk_score: float | None = None,
+        sector: str | None = None,
+        stop_price: float | None = None,
+        target_price: float | None = None,
+        metadata: dict[str, Any] | None = None,
+        entry_time: str | None = None,
+    ) -> TradeRecord:
+        record = TradeRecord(
+            trade_id=uuid4().hex,
+            symbol=str(symbol).upper(),
+            market=str(market).upper(),
+            side=str(side).upper(),
+            entry_time=entry_time or self._now_iso(),
+            entry_price=float(entry_price),
+            quantity=float(quantity),
+            entry_reason=str(entry_reason),
+            ai_score=self._optional_float(ai_score),
+            ai_decision=ai_decision,
+            ai_confidence=self._optional_float(ai_confidence),
+            technical_score=self._optional_float(technical_score),
+            market_regime=market_regime,
+            correlation_score=self._optional_float(correlation_score),
+            risk_score=self._optional_float(risk_score),
+            sector=sector,
+            stop_price=self._optional_float(stop_price),
+            target_price=self._optional_float(target_price),
+            metadata=dict(metadata or {}),
+        )
+        self._append_event("OPEN", record.to_dict())
+        return record
 
-def _parse_datetime(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(str(value))
-    except (TypeError, ValueError):
-        return None
+    def close_trade(
+        self,
+        trade: TradeRecord | dict[str, Any],
+        *,
+        exit_price: float,
+        exit_reason: str,
+        exit_time: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> TradeRecord:
+        if isinstance(trade, dict):
+            record = TradeRecord(**trade)
+        else:
+            record = trade
 
+        if record.status == "CLOSED":
+            raise ValueError("İşlem zaten kapalı.")
 
-def _grade(score: float) -> str:
-    if score >= 90:
-        return "A+"
-    if score >= 80:
-        return "A"
-    if score >= 70:
-        return "B"
-    if score >= 60:
-        return "C"
-    return "D"
+        record.exit_time = exit_time or self._now_iso()
+        record.exit_price = float(exit_price)
+        record.exit_reason = str(exit_reason)
+        record.pnl = round(
+            self.calculate_pnl(
+                side=record.side,
+                entry_price=record.entry_price,
+                exit_price=record.exit_price,
+                quantity=record.quantity,
+            ),
+            8,
+        )
+        record.pnl_pct = round(
+            self.calculate_pnl_pct(
+                side=record.side,
+                entry_price=record.entry_price,
+                exit_price=record.exit_price,
+            ),
+            6,
+        )
+        record.duration_minutes = round(
+            self.calculate_duration_minutes(
+                record.entry_time,
+                record.exit_time,
+            ),
+            2,
+        )
+        record.status = "CLOSED"
+        if metadata:
+            record.metadata.update(metadata)
 
+        self._append_event("CLOSE", record.to_dict())
+        return record
+
+    def read_events(self) -> list[dict[str, Any]]:
+        events: list[dict[str, Any]] = []
+        if not self.storage_path.exists():
+            return events
+
+        for line in self.storage_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            events.append(json.loads(line))
+        return events
+
+    def latest_trade_state(self, trade_id: str) -> dict[str, Any] | None:
+        latest = None
+        for event in self.read_events():
+            payload = event.get("payload") or {}
+            if payload.get("trade_id") == trade_id:
+                latest = payload
+        return latest
+
+    def closed_trades(self) -> list[dict[str, Any]]:
+        latest_by_id: dict[str, dict[str, Any]] = {}
+        for event in self.read_events():
+            payload = event.get("payload") or {}
+            trade_id = payload.get("trade_id")
+            if trade_id:
+                latest_by_id[trade_id] = payload
+
+        return [
+            trade
+            for trade in latest_by_id.values()
+            if trade.get("status") == "CLOSED"
+        ]
+
+    @staticmethod
+    def calculate_pnl(
+        *,
+        side: str,
+        entry_price: float,
+        exit_price: float,
+        quantity: float,
+    ) -> float:
+        side_upper = str(side).upper()
+        direction = -1.0 if side_upper in {"SELL", "SHORT"} else 1.0
+        return (float(exit_price) - float(entry_price)) * float(quantity) * direction
+
+    @staticmethod
+    def calculate_pnl_pct(
+        *,
+        side: str,
+        entry_price: float,
+        exit_price: float,
+    ) -> float:
+        entry = float(entry_price)
+        if entry == 0:
+            raise ValueError("Giriş fiyatı sıfır olamaz.")
+
+        side_upper = str(side).upper()
+        direction = -1.0 if side_upper in {"SELL", "SHORT"} else 1.0
+        return ((float(exit_price) - entry) / entry) * 100.0 * direction
+
+    @staticmethod
+    def calculate_duration_minutes(entry_time: str, exit_time: str) -> float:
+        start = datetime.fromisoformat(entry_time.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(exit_time.replace("Z", "+00:00"))
+        return max(0.0, (end - start).total_seconds() / 60.0)
+
+    def _append_event(self, event_type: str, payload: dict[str, Any]) -> None:
+        event = {
+            "event_type": event_type,
+            "logged_at": self._now_iso(),
+            "payload": payload,
+        }
+        with self.storage_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+    @staticmethod
+    def _optional_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        return float(value)
+
+    @staticmethod
+    def _now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat()
 
 def analyze_closed_trade(
-    *,
-    entry_price: float,
-    exit_price: float,
-    quantity: float,
-    total_profit: float,
-    opened_at: str | None,
-    closed_at: str | None,
-    highest_price: float | None = None,
-    lowest_price: float | None = None,
-    stop_price: float | None = None,
-    target_price: float | None = None,
-    technical_score: float = 0.0,
-    confidence_score: float = 0.0,
-) -> TradeIntelligenceResult:
-    entry_price = float(entry_price)
-    exit_price = float(exit_price)
-    quantity = float(quantity)
-
-    if entry_price <= 0:
-        raise ValueError("entry_price sıfırdan büyük olmalıdır.")
-    if exit_price <= 0:
-        raise ValueError("exit_price sıfırdan büyük olmalıdır.")
-    if quantity <= 0:
-        raise ValueError("quantity sıfırdan büyük olmalıdır.")
-
-    highest = max(
-        entry_price,
-        exit_price,
-        float(highest_price) if highest_price not in (None, 0) else entry_price,
-    )
-    lowest = min(
-        entry_price,
-        exit_price,
-        float(lowest_price) if lowest_price not in (None, 0) else entry_price,
-    )
-
-    invested_amount = entry_price * quantity
-    profit_pct = (float(total_profit) / invested_amount) * 100.0
-    mfe_pct = ((highest - entry_price) / entry_price) * 100.0
-    mae_pct = ((lowest - entry_price) / entry_price) * 100.0
-
-    stop = float(stop_price or 0.0)
-    target = float(target_price or 0.0)
-
-    risk_pct = (
-        ((entry_price - stop) / entry_price) * 100.0
-        if 0 < stop < entry_price
-        else max(abs(mae_pct), 0.01)
-    )
-    reward_pct = (
-        ((target - entry_price) / entry_price) * 100.0
-        if target > entry_price
-        else max(mfe_pct, 0.0)
-    )
-    risk_reward = reward_pct / risk_pct if risk_pct > 0 else 0.0
-
-    adverse_usage = abs(min(mae_pct, 0.0)) / max(risk_pct, 0.01)
-    entry_efficiency = _clamp(100.0 - adverse_usage * 100.0)
-
-    gross_move_pct = ((exit_price - entry_price) / entry_price) * 100.0
-    if mfe_pct > 0 and gross_move_pct > 0:
-        exit_efficiency = _clamp((gross_move_pct / mfe_pct) * 100.0)
-    elif gross_move_pct == 0:
-        exit_efficiency = 50.0
+    trade: TradeRecord | dict[str, Any],
+) -> dict[str, Any]:
+    """Kapalı işlem kaydından standart analiz özeti üretir."""
+    if isinstance(trade, TradeRecord):
+        data = trade.to_dict()
     else:
-        exit_efficiency = 0.0
+        data = dict(trade)
 
-    opened = _parse_datetime(opened_at)
-    closed = _parse_datetime(closed_at)
-    holding_minutes = 0.0
-    if opened and closed and closed >= opened:
-        holding_minutes = (closed - opened).total_seconds() / 60.0
+    pnl = data.get("pnl")
+    pnl_pct = data.get("pnl_pct")
+    duration = data.get("duration_minutes")
+    status = str(data.get("status") or "").upper()
 
-    profitability_component = _clamp(50.0 + profit_pct * 8.0)
-    risk_reward_component = _clamp(risk_reward * 30.0)
+    is_closed = status == "CLOSED"
+    is_winner = bool(is_closed and pnl is not None and float(pnl) > 0)
+    is_loser = bool(is_closed and pnl is not None and float(pnl) < 0)
+    is_breakeven = bool(is_closed and pnl is not None and float(pnl) == 0)
 
-    quality_score = (
-        profitability_component * 0.30
-        + risk_reward_component * 0.20
-        + entry_efficiency * 0.15
-        + exit_efficiency * 0.15
-        + _clamp(technical_score) * 0.10
-        + _clamp(confidence_score) * 0.10
-    )
-    quality_score = round(_clamp(quality_score), 2)
+    if not is_closed:
+        outcome = "OPEN"
+    elif is_winner:
+        outcome = "WIN"
+    elif is_loser:
+        outcome = "LOSS"
+    else:
+        outcome = "BREAKEVEN"
 
-    return TradeIntelligenceResult(
-        profit_pct=round(profit_pct, 4),
-        holding_minutes=round(holding_minutes, 2),
-        mfe_pct=round(mfe_pct, 4),
-        mae_pct=round(mae_pct, 4),
-        risk_pct=round(risk_pct, 4),
-        reward_pct=round(reward_pct, 4),
-        risk_reward=round(risk_reward, 4),
-        entry_efficiency=round(entry_efficiency, 2),
-        exit_efficiency=round(exit_efficiency, 2),
-        trade_quality_score=quality_score,
-        trade_grade=_grade(quality_score),
-    )
+    return {
+        "trade_id": data.get("trade_id"),
+        "symbol": data.get("symbol"),
+        "market": data.get("market"),
+        "side": data.get("side"),
+        "status": status or "UNKNOWN",
+        "outcome": outcome,
+        "is_closed": is_closed,
+        "is_winner": is_winner,
+        "is_loser": is_loser,
+        "is_breakeven": is_breakeven,
+        "pnl": None if pnl is None else float(pnl),
+        "pnl_pct": None if pnl_pct is None else float(pnl_pct),
+        "duration_minutes": None if duration is None else float(duration),
+        "entry_reason": data.get("entry_reason"),
+        "exit_reason": data.get("exit_reason"),
+        "ai_score": data.get("ai_score"),
+        "ai_decision": data.get("ai_decision"),
+        "technical_score": data.get("technical_score"),
+        "market_regime": data.get("market_regime"),
+        "correlation_score": data.get("correlation_score"),
+        "risk_score": data.get("risk_score"),
+    }
+

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from typing import Any
 
 import pandas as pd
@@ -154,3 +156,59 @@ def dashboard_snapshot(database, bist_universe: str = "arindirma_0") -> dict[str
 
     top = sorted(rows, key=lambda row: float(row.get("Puan", 0) or 0), reverse=True)[:10]
     return {"summary": summary, "last_scan": last_bist, "top": top}
+
+
+def latest_robot_diagnostics(
+    database,
+    market: str | None = None,
+    *,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Son robot i?lem-a?mama tan?lama kay?tlar?n? d?nd?r?r."""
+    params: list[Any] = ["ROBOT_DIAGNOSTIC"]
+    market_name = str(market or "").strip().upper()
+
+    query = """
+        SELECT id, created_at, message
+        FROM system_events
+        WHERE event_type = ?
+        ORDER BY id DESC
+        LIMIT ?
+    """
+    params.append(max(int(limit) * 5, int(limit)))
+
+    with database.connect() as connection:
+        records = connection.execute(query, params).fetchall()
+
+    results: list[dict[str, Any]] = []
+
+    for event_id, created_at, message in records:
+        try:
+            payload = json.loads(str(message or "{}"))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+
+        event_market = str(payload.get("market") or "").strip().upper()
+        if market_name and event_market != market_name:
+            continue
+
+        diagnostics = payload.get("diagnostics") or []
+        if not isinstance(diagnostics, list):
+            diagnostics = [str(diagnostics)]
+
+        results.append(
+            {
+                "ID": int(event_id),
+                "Tarih": str(created_at or ""),
+                "Piyasa": event_market,
+                "Evren": str(payload.get("universe") or ""),
+                "Taranan": int(payload.get("scanned") or 0),
+                "Tan?lama": [str(item) for item in diagnostics],
+            }
+        )
+
+        if len(results) >= int(limit):
+            break
+
+    return results
+

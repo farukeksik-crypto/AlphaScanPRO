@@ -1,0 +1,56 @@
+AlphaScan PRO — Sprint 6.3E-C Şema Keşif Raporu
+================================================================
+Proje: C:\Users\Faruk\AlphaScanPRO_Git_Temiz
+Hedef dosya: engine\background_orchestrator.py
+
+1) process_open_positions çağrısını kapsayan fonksiyon
+----------------------------------------------------------------
+Fonksiyon: _process_robot
+
+0160:     def _process_robot(self, rows: list[dict[str, Any]], market: str, universe: str, enabled: bool):
+0161:         robot = self._robot_for_market(market)
+0162:         latest_prices = {
+0163:             str(row.get("Kod", "")): float(row.get("Fiyat", 0) or 0)
+0164:             for row in rows if row.get("Kod") and float(row.get("Fiyat", 0) or 0) > 0
+0165:         }
+0166:         actions = robot.process_open_positions(latest_prices)
+0167:         if enabled:
+0168:             actions.extend(robot.process_scanner_results(
+0169:                 rows, market=normalize_market(market), universe=universe,
+0170:                 strategy_profile=f"Background {normalize_market(market)} V1"
+0171:             ))
+0172:         return actions
+
+
+2) background_orchestrator içinde kullanılan row.get alanları
+----------------------------------------------------------------
+AI Analizi, Ad, Başarı Göstergesi %, Coin, Emtia, Fiyat, Güven, Güven Durumu, Hedef 1, Hedef 2, Hisse, Karar, Kod, Neden, Puan, Risk, Stop
+
+
+3) Muhtemel tarayıcı / sonuç üretici dosyaları
+----------------------------------------------------------------
+database\background_repository.py | row alanları: Evren, Karar, Piyasa, Puan
+engine\ai\learning_engine.py | row alanları: İşlem, İşlem_Sayısı
+engine\background_orchestrator.py | row alanları: AI Analizi, Ad, Başarı Göstergesi %, Coin, Emtia, Fiyat, Güven, Güven Durumu, Hedef 1, Hedef 2, Hisse, Karar, Kod, Neden, Puan, Risk, Stop
+engine\relative_strength_engine.py | row alanları: ad, kod
+engine\robot_engine.py | row alanları: AI Analizi, Başarı Göstergesi %, Evren, Fiyat, Güven, Güven Durumu, Hedef 1, Hedef 2, Karar, Kod, Neden, Piyasa, Puan, Risk, Stop
+engine\scanner.py | row alanları: Karar, Puan, ad, kod, sembol, symbol
+ui\ai_learning_page.py | row alanları: doğrudan row.get bulunamadı
+ui\backtest_page.py | row alanları: ad, error, kod
+ui\dashboard_page.py | row alanları: Karar
+ui\robot_page.py | row alanları: Başarı Göstergesi %, Güven, Karar, Puan, Risk, ok
+ui\scanner_pages.py | row alanları: ADX, Arindirma, Arındırma, Ayrışma %, Güven, Karar, Puan, RSI
+
+
+4) Smart Exit için aranan olası alan adları
+----------------------------------------------------------------
+RSI: RSI, rsi
+Önceki RSI: Previous_RSI, RSI_Onceki, previous_rsi
+MACD histogram: MACD_HIST, MACD Hist, macd_hist
+EMA20: EMA20, ema20
+Kapanış: Close, Fiyat, close
+Hacim oranı: Volume_Ratio, Hacim_Oran, volume_ratio
+ADX: ADX, adx
+Önceki ADX: Previous_ADX, ADX_Onceki, previous_adx
+
+Bu rapor hiçbir proje dosyasını değiştirmedi.

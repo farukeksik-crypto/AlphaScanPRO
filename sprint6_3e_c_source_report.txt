@@ -1,0 +1,743 @@
+AlphaScan PRO — Sprint 6.3E-C Kaynak Keşif Raporu
+======================================================================
+Proje: C:\Users\Faruk\AlphaScanPRO_Git_Temiz
+
+
+DOSYA: engine\background_orchestrator.py
+----------------------------------------------------------------------
+
+A) İlgili sözlük oluşturma blokları
+
+[Sözlük 1]
+0086:             symbol = str(item.get("Kod") or item.get("Coin") or item.get("Emtia") or "").strip()
+0087:             name = str(item.get("Hisse") or item.get("Coin") or item.get("Emtia") or symbol)
+0088:             analysis = analyze_signal_payload(item)
+0089:             item.update({
+0090:                 "Kod": symbol,
+0091:                 "Ad": name,
+0092:                 "Piyasa": market,
+0093:                 "Evren": universe,
+0094:                 "Güven": analysis["confidence"],
+0095:                 "Güven Durumu": analysis["confidence_label"],
+0096:                 "Güven Yıldızı": analysis["confidence_stars"],
+0097:                 "Risk": analysis["risk_level"],
+0098:                 "Başarı Göstergesi %": analysis["probability"],
+0099:                 "AI Analizi": analysis["summary"],
+0100:             })
+0101:             normalized.append(item)
+0102:         return normalized
+0103: 
+
+B) İlgili fonksiyonlar
+İlgili fonksiyon bulunamadı.
+
+
+DOSYA: engine\scanner.py
+----------------------------------------------------------------------
+
+A) İlgili sözlük oluşturma blokları
+
+[Sözlük 1]
+0110:     decision: Decision,
+0111:     frame: pd.DataFrame,
+0112: ) -> dict[str, Any]:
+0113:     return {
+0114:         "Karar": _normalize_decision(decision.action),
+0115:         "Kalite": decision.quality,
+0116:         "Puan": _safe_int(decision.score),
+0117: 
+0118:         # Sprint 2 - Güven Analizi
+0119:         "Güven": round(decision.confidence, 1),
+0120:         "Güven Seviyesi": decision.confidence_label,
+0121:         "Pozisyon %": round(
+0122:             decision.suggested_position_percent,
+0123:             1,
+0124:         ),
+0125: 
+0126:         "Fiyat": _safe_float(decision.price),
+0127:         "Stop": _safe_float(decision.stop),
+0128:         "Hedef 1": _safe_float(decision.target1),
+0129:         "Hedef 2": _safe_float(decision.target2),
+0130:         "R/K 1": _safe_float(decision.risk_reward1),
+0131:         "R/K 2": _safe_float(decision.risk_reward2),
+0132:         "RSI": decision.rsi,
+0133:         "ADX": decision.adx,
+0134:         "Neden": decision.reason,
+0135:         "Mum": len(frame),
+0136:     }
+0137: 
+0138: def _result_sort_key(
+0139:     row: dict[str, Any],
+
+[Sözlük 2]
+0255:         frame = _validate_frame(frame)
+0256:         decision = _evaluate_frame(frame)
+0257: 
+0258:         return {
+0259:             "Kod": code,
+0260:             "Hisse": str(
+0261:                 item.get(
+0262:                     "ad",
+0263:                     code,
+0264:                 )
+0265:             ),
+0266:             **_common_signal_fields(
+0267:                 decision,
+0268:                 frame,
+0269:             ),
+0270:         }
+0271: 
+0272:     with ThreadPoolExecutor(
+0273:         max_workers=safe_workers
+
+[Sözlük 3]
+0292: 
+0293:             except Exception as exc:
+0294:                 failures.append(
+0295:                     {
+0296:                         "Kod": str(
+0297:                             item.get(
+0298:                                 "kod",
+0299:                                 "?",
+0300:                             )
+0301:                         ),
+0302:                         "Hisse": str(
+0303:                             item.get(
+0304:                                 "ad",
+0305:                                 "?",
+0306:                             )
+0307:                         ),
+0308:                         "Sembol": str(
+0309:                             item.get(
+0310:                                 "sembol",
+0311:                                 item.get(
+0312:                                     "symbol",
+0313:                                     "",
+0314:                                 ),
+0315:                             )
+0316:                         ),
+0317:                         "Hata": str(exc),
+0318:                     }
+0319:                 )
+0320: 
+0321:     results.sort(
+
+B) İlgili fonksiyonlar
+
+[Fonksiyon: _common_signal_fields]
+0109: def _common_signal_fields(
+0110:     decision: Decision,
+0111:     frame: pd.DataFrame,
+0112: ) -> dict[str, Any]:
+0113:     return {
+0114:         "Karar": _normalize_decision(decision.action),
+0115:         "Kalite": decision.quality,
+0116:         "Puan": _safe_int(decision.score),
+0117: 
+0118:         # Sprint 2 - Güven Analizi
+0119:         "Güven": round(decision.confidence, 1),
+0120:         "Güven Seviyesi": decision.confidence_label,
+0121:         "Pozisyon %": round(
+0122:             decision.suggested_position_percent,
+0123:             1,
+0124:         ),
+0125: 
+0126:         "Fiyat": _safe_float(decision.price),
+0127:         "Stop": _safe_float(decision.stop),
+0128:         "Hedef 1": _safe_float(decision.target1),
+0129:         "Hedef 2": _safe_float(decision.target2),
+0130:         "R/K 1": _safe_float(decision.risk_reward1),
+0131:         "R/K 2": _safe_float(decision.risk_reward2),
+0132:         "RSI": decision.rsi,
+0133:         "ADX": decision.adx,
+0134:         "Neden": decision.reason,
+0135:         "Mum": len(frame),
+0136:     }
+
+[Fonksiyon: _result_sort_key]
+0138: def _result_sort_key(
+0139:     row: dict[str, Any],
+0140:     name_field: str,
+0141: ) -> tuple[int, int, str]:
+0142:     decision = _normalize_decision(
+0143:         row.get(
+0144:             "Karar",
+0145:             "YETERSİZ VERİ",
+0146:         )
+0147:     )
+0148: 
+0149:     score = _safe_int(
+0150:         row.get(
+0151:             "Puan",
+0152:             0,
+0153:         )
+0154:     )
+0155: 
+0156:     name = str(
+0157:         row.get(
+0158:             name_field,
+0159:             "",
+0160:         )
+0161:     )
+0162: 
+0163:     return (
+0164:         DECISION_ORDER.get(decision, 99),
+0165:         -score,
+0166:         name,
+0167:     )
+
+[Fonksiyon: scan_yahoo_items]
+0219: def scan_yahoo_items(
+0220:     data_engine: Any,
+0221:     items: list[dict[str, Any]],
+0222:     workers: int = 4,
+0223: ) -> tuple[
+0224:     list[dict[str, Any]],
+0225:     list[dict[str, Any]],
+0226: ]:
+0227:     """
+0228:     BIST hisselerini Yahoo Finance üzerinden paralel tarar.
+0229:     """
+0230: 
+0231:     results: list[dict[str, Any]] = []
+0232:     failures: list[dict[str, Any]] = []
+0233: 
+0234:     safe_workers = max(
+0235:         1,
+0236:         min(
+0237:             int(workers),
+0238:             12,
+0239:         ),
+0240:     )
+0241: 
+0242:     def run(
+0243:         item: dict[str, Any],
+0244:     ) -> dict[str, Any]:
+0245:         code, symbol = _resolve_yahoo_symbol(
+0246:             item
+0247:         )
+0248: 
+0249:         frame = data_engine.get_yahoo(
+0250:             symbol,
+0251:             "2y",
+0252:             "1d",
+0253:         )
+0254: 
+0255:         frame = _validate_frame(frame)
+0256:         decision = _evaluate_frame(frame)
+0257: 
+0258:         return {
+0259:             "Kod": code,
+0260:             "Hisse": str(
+0261:                 item.get(
+0262:                     "ad",
+0263:                     code,
+0264:                 )
+0265:             ),
+0266:             **_common_signal_fields(
+0267:                 decision,
+0268:                 frame,
+0269:             ),
+0270:         }
+0271: 
+0272:     with ThreadPoolExecutor(
+0273:         max_workers=safe_workers
+0274:     ) as executor:
+0275:         future_map = {
+0276:             executor.submit(
+0277:                 run,
+0278:                 item,
+0279:             ): item
+0280:             for item in items
+0281:         }
+0282: 
+0283:         for future in as_completed(
+0284:             future_map
+0285:         ):
+0286:             item = future_map[future]
+0287: 
+0288:             try:
+0289:                 results.append(
+0290:                     future.result()
+0291:                 )
+0292: 
+0293:             except Exception as exc:
+0294:                 failures.append(
+0295:                     {
+0296:                         "Kod": str(
+0297:                             item.get(
+0298:                                 "kod",
+0299:                                 "?",
+0300:                             )
+0301:                         ),
+0302:                         "Hisse": str(
+0303:                             item.get(
+0304:                                 "ad",
+0305:                                 "?",
+0306:                             )
+0307:                         ),
+0308:                         "Sembol": str(
+0309:                             item.get(
+0310:                                 "sembol",
+0311:                                 item.get(
+0312:                                     "symbol",
+0313:                                     "",
+0314:                                 ),
+0315:                             )
+0316:                         ),
+0317:                         "Hata": str(exc),
+0318:                     }
+0319:                 )
+0320: 
+0321:     results.sort(
+0322:         key=lambda row: _result_sort_key(
+0323:             row,
+0324:             "Kod",
+0325:         )
+0326:     )
+0327: 
+0328:     return results, failures
+
+[Fonksiyon: scan_crypto]
+0331: def scan_crypto(
+0332:     data_engine: Any,
+0333:     pairs: dict[str, str],
+0334: ) -> tuple[
+0335:     list[dict[str, Any]],
+0336:     list[dict[str, Any]],
+0337: ]:
+0338:     """
+0339:     Kripto paritelerini Binance üzerinden tarar.
+0340:     """
+0341: 
+0342:     rows: list[dict[str, Any]] = []
+0343:     failures: list[dict[str, Any]] = []
+0344: 
+0345:     for name, symbol in pairs.items():
+0346:         try:
+0347:             clean_name = str(
+0348:                 name
+0349:             ).strip()
+0350: 
+0351:             clean_symbol = str(
+0352:                 symbol
+0353:             ).strip()
+0354: 
+0355:             if not clean_symbol:
+0356:                 raise ValueError(
+0357:                     "Kripto parite sembolü bulunamadı."
+0358:                 )
+0359: 
+0360:             frame = data_engine.get_binance(
+0361:                 clean_symbol,
+0362:                 "1h",
+0363:                 1000,
+0364:             )
+0365: 
+0366:             frame = _validate_frame(frame)
+0367:             decision = _evaluate_frame(frame)
+0368: 
+0369:             rows.append(
+0370:                 {
+0371:                     "Coin": clean_name,
+0372:                     **_common_signal_fields(
+0373:                         decision,
+0374:                         frame,
+0375:                     ),
+0376:                 }
+0377:             )
+0378: 
+0379:         except Exception as exc:
+0380:             failures.append(
+0381:                 {
+0382:                     "Coin": str(name),
+0383:                     "Sembol": str(symbol),
+0384:                     "Hata": str(exc),
+0385:                 }
+0386:             )
+0387: 
+0388:     rows.sort(
+0389:         key=lambda row: _result_sort_key(
+0390:             row,
+0391:             "Coin",
+0392:         )
+0393:     )
+0394: 
+0395:     return rows, failures
+
+[Fonksiyon: scan_commodities]
+0398: def scan_commodities(
+0399:     data_engine: Any,
+0400:     symbols: dict[str, str],
+0401: ) -> tuple[
+0402:     list[dict[str, Any]],
+0403:     list[dict[str, Any]],
+0404: ]:
+0405:     """
+0406:     Emtia sembollerini Yahoo Finance üzerinden tarar.
+0407:     """
+0408: 
+0409:     rows: list[dict[str, Any]] = []
+0410:     failures: list[dict[str, Any]] = []
+0411: 
+0412:     for name, symbol in symbols.items():
+0413:         try:
+0414:             clean_name = str(
+0415:                 name
+0416:             ).strip()
+0417: 
+0418:             clean_symbol = str(
+0419:                 symbol
+0420:             ).strip()
+0421: 
+0422:             if not clean_symbol:
+0423:                 raise ValueError(
+0424:                     "Emtia sembolü bulunamadı."
+0425:                 )
+0426: 
+0427:             frame = data_engine.get_yahoo(
+0428:                 clean_symbol,
+0429:                 "2y",
+0430:                 "1d",
+0431:             )
+0432: 
+0433:             frame = _validate_frame(frame)
+0434:             decision = _evaluate_frame(frame)
+0435: 
+0436:             rows.append(
+0437:                 {
+0438:                     "Emtia": clean_name,
+0439:                     **_common_signal_fields(
+0440:                         decision,
+0441:                         frame,
+0442:                     ),
+0443:                 }
+0444:             )
+0445: 
+0446:         except Exception as exc:
+0447:             failures.append(
+0448:                 {
+0449:                     "Emtia": str(name),
+0450:                     "Sembol": str(symbol),
+0451:                     "Hata": str(exc),
+0452:                 }
+0453:             )
+0454: 
+0455:     rows.sort(
+0456:         key=lambda row: _result_sort_key(
+0457:             row,
+0458:             "Emtia",
+0459:         )
+0460:     )
+0461: 
+0462:     return rows, failures
+
+
+DOSYA: ui\scanner_pages.py
+----------------------------------------------------------------------
+
+A) İlgili sözlük oluşturma blokları
+
+[Sözlük 1]
+0386:     if "Ayrışma %" in frame.columns:
+0387:         style = style.map(_style_relative, subset=["Ayrışma %"])
+0388: 
+0389:     numeric_formats = {
+0390:         "Fiyat": "{:,.4f}",
+0391:         "Hisse %": "{:+.2f}%",
+0392:         "BIST %": "{:+.2f}%",
+0393:         "Ayrışma %": "{:+.2f}%",
+0394:         "Puan": "{:.1f}",
+0395:         "Güven": "{:.1f}",
+0396:         "Başarı Göstergesi %": "{:.1f}%",
+0397:         "RSI": "{:.2f}",
+0398:         "ADX": "{:.2f}",
+0399:         "Stop": "{:,.4f}",
+0400:         "Hedef 1": "{:,.4f}",
+0401:         "Hedef 2": "{:,.4f}",
+0402:         "R/K 1": "{:.2f}",
+0403:         "R/K 2": "{:.2f}",
+0404:         "Arındırma": "{:.2f}",
+0405:         "Arindirma": "{:.2f}",
+0406:     }
+0407: 
+0408:     available_formats = {
+0409:         key: value for key, value in numeric_formats.items() if key in frame.columns
+
+B) İlgili fonksiyonlar
+
+[Fonksiyon: _prepare_scanner_frame]
+0228: def _prepare_scanner_frame(results: list[dict]) -> pd.DataFrame:
+0229:     frame = pd.DataFrame(results)
+0230: 
+0231:     if frame.empty:
+0232:         return frame
+0233: 
+0234:     frame = _merge_relative_strength(frame)
+0235:     frame["AlphaScore"] = frame["Puan"].apply(_alpha_score)
+0236: 
+0237:     analysis_frame = frame.apply(_analysis_for_row, axis=1)
+0238:     for column in analysis_frame.columns:
+0239:         frame[column] = analysis_frame[column]
+0240: 
+0241:     frame["Trend"] = frame.apply(_trend_stars, axis=1)
+0242:     frame["Robot Yorumu"] = frame.apply(_robot_comment, axis=1)
+0243: 
+0244:     preferred_columns = [
+0245:         "Kod",
+0246:         "Hisse",
+0247:         "Fiyat",
+0248:         "Hisse %",
+0249:         "BIST %",
+0250:         "Ayrışma %",
+0251:         "Puan",
+0252:         "Güven",
+0253:         "Güven Durumu",
+0254:         "Güven Yıldızı",
+0255:         "Risk",
+0256:         "Başarı Göstergesi %",
+0257:         "AlphaScore",
+0258:         "Karar",
+0259:         "Trend",
+0260:         "RSI",
+0261:         "ADX",
+0262:         "Stop",
+0263:         "Hedef 1",
+0264:         "Hedef 2",
+0265:         "R/K 1",
+0266:         "R/K 2",
+0267:         "Arındırma",
+0268:         "Arindirma",
+0269:         "Neden",
+0270:         "Robot Yorumu",
+0271:         "AI Analizi",
+0272:         "Mum",
+0273:     ]
+0274: 
+0275:     available_columns = [
+0276:         column for column in preferred_columns if column in frame.columns
+0277:     ]
+0278: 
+0279:     return frame[available_columns]
+
+[Fonksiyon: _filter_scanner_frame]
+0282: def _filter_scanner_frame(
+0283:     frame: pd.DataFrame,
+0284:     selected_decisions: list[str],
+0285:     minimum_score: int,
+0286:     minimum_confidence: int,
+0287:     minimum_adx: int,
+0288:     search_text: str,
+0289:     only_positive_relative: bool,
+0290: ) -> pd.DataFrame:
+0291:     filtered = frame.copy()
+0292: 
+0293:     if selected_decisions:
+0294:         filtered = filtered[filtered["Karar"].isin(selected_decisions)]
+0295: 
+0296:     if "Puan" in filtered.columns:
+0297:         filtered = filtered[
+0298:             pd.to_numeric(filtered["Puan"], errors="coerce").fillna(0)
+0299:             >= minimum_score
+0300:         ]
+0301: 
+0302:     if "Güven" in filtered.columns:
+0303:         filtered = filtered[
+0304:             pd.to_numeric(filtered["Güven"], errors="coerce").fillna(0)
+0305:             >= minimum_confidence
+0306:         ]
+0307: 
+0308:     if minimum_adx > 0 and "ADX" in filtered.columns:
+0309:         filtered = filtered[
+0310:             pd.to_numeric(filtered["ADX"], errors="coerce").fillna(0)
+0311:             >= minimum_adx
+0312:         ]
+0313: 
+0314:     if only_positive_relative and "Ayrışma %" in filtered.columns:
+0315:         filtered = filtered[
+0316:             pd.to_numeric(filtered["Ayrışma %"], errors="coerce").fillna(-999)
+0317:             > 0
+0318:         ]
+0319: 
+0320:     search_text = search_text.strip().lower()
+0321: 
+0322:     if search_text:
+0323:         mask = (
+0324:             filtered["Kod"]
+0325:             .astype(str)
+0326:             .str.lower()
+0327:             .str.contains(search_text, na=False)
+0328:         )
+0329: 
+0330:         if "Hisse" in filtered.columns:
+0331:             mask = mask | (
+0332:                 filtered["Hisse"]
+0333:                 .astype(str)
+0334:                 .str.lower()
+0335:                 .str.contains(search_text, na=False)
+0336:             )
+0337: 
+0338:         filtered = filtered[mask]
+0339: 
+0340:     return filtered
+
+[Fonksiyon: _render_bist_universe]
+0422: def _render_bist_universe(
+0423:     data_engine,
+0424:     *,
+0425:     title: str,
+0426:     button_label: str,
+0427:     items: list[dict],
+0428:     session_prefix: str,
+0429:     universe_name: str,
+0430: ):
+0431:     st.title(title)
+0432: 
+0433:     if not items:
+0434:         st.warning(f"{universe_name} listesi boş.")
+0435:         return
+0436: 
+0437:     st.session_state["selected_bist_universe"] = universe_name
+0438: 
+0439:     top1, top2, top3 = st.columns(3)
+0440: 
+0441:     workers = top1.slider(
+0442:         "Paralel işçi",
+0443:         min_value=1,
+0444:         max_value=8,
+0445:         value=4,
+0446:         key=f"{session_prefix}_workers",
+0447:     )
+0448: 
+0449:     top2.metric("Takip edilen hisse", len(items))
+0450: 
+0451:     relative_results = st.session_state.get("relative_results", [])
+0452:     top3.metric("Göreceli güç verisi", "Hazır" if relative_results else "Yok")
+0453: 
+0454:     results_key = f"{session_prefix}_results"
+0455:     failures_key = f"{session_prefix}_failures"
+0456: 
+0457:     if st.button(button_label, type="primary", key=f"{session_prefix}_scan"):
+0458:         with st.spinner(f"{len(items)} hisse taranıyor..."):
+0459:             results, failures = scan_yahoo_items(data_engine, items, workers)
+0460: 
+0461:         st.session_state[results_key] = results
+0462:         st.session_state[failures_key] = failures
+0463:         # Robot ekranı son çalıştırılan BIST evrenini bağımsız olarak okuyabilsin.
+0464:         st.session_state["s2_bist_results"] = results
+0465:         st.session_state["s2_bist_failures"] = failures
+0466:         st.session_state["selected_bist_universe"] = universe_name
+0467: 
+0468:     results = st.session_state.get(results_key, [])
+0469:     failures = st.session_state.get(failures_key, [])
+0470: 
+0471:     if not results:
+0472:         st.info("Henüz tarama yapılmadı.")
+0473:         return
+0474: 
+0475:     frame = _prepare_scanner_frame(results)
+0476:     _render_summary(frame)
+0477: 
+0478:     st.subheader("Filtreler")
+0479:     f1, f2, f3, f4, f5 = st.columns(5)
+0480: 
+0481:     selected_decisions = f1.multiselect(
+0482:         "Kararlar",
+0483:         options=["NET AL", "AL ADAY", "IZLE", "BEKLE"],
+0484:         default=["NET AL", "AL ADAY", "IZLE"],
+0485:         key=f"{session_prefix}_decisions",
+0486:     )
+0487: 
+0488:     minimum_score = f2.slider(
+0489:         "Minimum skor", 0, 100, 50, key=f"{session_prefix}_score"
+0490:     )
+0491:     minimum_confidence = f3.slider(
+0492:         "Minimum güven", 0, 100, 0, key=f"{session_prefix}_confidence"
+0493:     )
+0494:     minimum_adx = f4.slider(
+0495:         "Minimum ADX", 0, 50, 0, key=f"{session_prefix}_adx"
+0496:     )
+0497:     only_positive_relative = f5.checkbox(
+0498:         "Sadece BIST'ten güçlüler",
+0499:         value=False,
+0500:         disabled="Ayrışma %" not in frame.columns,
+0501:         key=f"{session_prefix}_relative",
+0502:     )
+0503: 
+0504:     search_text = st.text_input(
+0505:         "Hisse ara",
+0506:         placeholder="Örnek: BIMAS",
+0507:         key=f"{session_prefix}_search",
+0508:     )
+0509: 
+0510:     filtered = _filter_scanner_frame(
+0511:         frame=frame,
+0512:         selected_decisions=selected_decisions,
+0513:         minimum_score=minimum_score,
+0514:         minimum_confidence=minimum_confidence,
+0515:         minimum_adx=minimum_adx,
+0516:         search_text=search_text,
+0517:         only_positive_relative=only_positive_relative,
+0518:     )
+0519: 
+0520:     sort_options = [
+0521:         column
+0522:         for column in [
+0523:             "Güven",
+0524:             "Başarı Göstergesi %",
+0525:             "Puan",
+0526:             "Ayrışma %",
+0527:             "RSI",
+0528:             "ADX",
+0529:             "Fiyat",
+0530:         ]
+0531:         if column in filtered.columns
+0532:     ]
+0533: 
+0534:     if sort_options:
+0535:         s1, s2 = st.columns(2)
+0536:         sort_column = s1.selectbox(
+0537:             "Sıralama", sort_options, key=f"{session_prefix}_sort"
+0538:         )
+0539:         descending = s2.checkbox(
+0540:             "Büyükten küçüğe", value=True, key=f"{session_prefix}_descending"
+0541:         )
+0542:         filtered = filtered.sort_values(
+0543:             by=sort_column,
+0544:             ascending=not descending,
+0545:             na_position="last",
+0546:         )
+0547: 
+0548:     st.subheader(f"Sonuçlar — {len(filtered)} hisse")
+0549:     _render_pro_table(filtered)
+0550: 
+0551:     export1, export2 = st.columns(2)
+0552:     csv_data = filtered.to_csv(index=False).encode("utf-8-sig")
+0553:     safe_name = session_prefix.replace("s2_", "")
+0554: 
+0555:     export1.download_button(
+0556:         "CSV indir",
+0557:         data=csv_data,
+0558:         file_name=f"alphascan_{safe_name}.csv",
+0559:         mime="text/csv",
+0560:         key=f"{session_prefix}_csv",
+0561:     )
+0562: 
+0563:     try:
+0564:         excel_data = _to_excel(filtered)
+0565:         export2.download_button(
+0566:             "Excel indir",
+0567:             data=excel_data,
+0568:             file_name=f"alphascan_{safe_name}.xlsx",
+0569:             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+0570:             key=f"{session_prefix}_xlsx",
+0571:         )
+0572:     except ImportError:
+0573:         export2.info("Excel aktarımı için openpyxl gerekli.")
+0574: 
+0575:     if failures:
+0576:         st.warning(f"{len(failures)} hisse taranamadı.")
+0577:         st.dataframe(pd.DataFrame(failures), width="stretch", hide_index=True)
+
+
+Bu rapor hiçbir proje dosyasını değiştirmedi.

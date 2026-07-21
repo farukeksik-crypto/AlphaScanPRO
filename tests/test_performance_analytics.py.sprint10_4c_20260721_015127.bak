@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+from math import inf
+
+from engine.performance_analytics import PerformanceAnalyticsEngine
+
+
+TRADES = [
+    {
+        "status": "CLOSED",
+        "pnl": 100,
+        "duration_minutes": 60,
+        "market": "BIST",
+        "market_regime": "BULL",
+        "ai_decision": "BUY",
+        "ai_score": 82,
+        "sector": "BANKA",
+    },
+    {
+        "status": "CLOSED",
+        "pnl": -50,
+        "duration_minutes": 30,
+        "market": "BIST",
+        "market_regime": "BULL",
+        "ai_decision": "BUY",
+        "ai_score": 75,
+        "sector": "BANKA",
+    },
+    {
+        "status": "CLOSED",
+        "pnl": 25,
+        "duration_minutes": 90,
+        "market": "CRYPTO",
+        "market_regime": "SIDEWAYS",
+        "ai_decision": "STRONG BUY",
+        "ai_score": 91,
+        "sector": None,
+    },
+    {
+        "status": "CLOSED",
+        "pnl": 0,
+        "duration_minutes": 15,
+        "market": "CRYPTO",
+        "market_regime": "SIDEWAYS",
+        "ai_decision": "WATCH",
+        "ai_score": 65,
+        "sector": None,
+    },
+]
+
+
+def test_summary_metrics() -> None:
+    engine = PerformanceAnalyticsEngine()
+    result = engine.summarize(TRADES)
+
+    assert result.total_trades == 4
+    assert result.winning_trades == 2
+    assert result.losing_trades == 1
+    assert result.breakeven_trades == 1
+    assert result.win_rate == 50
+    assert result.gross_profit == 125
+    assert result.gross_loss == 50
+    assert result.net_pnl == 75
+    assert result.average_pnl == 18.75
+    assert result.profit_factor == 2.5
+    assert result.expectancy == 18.75
+    assert result.average_duration_minutes == 48.75
+    assert result.best_trade == 100
+    assert result.worst_trade == -50
+
+
+def test_empty_summary() -> None:
+    engine = PerformanceAnalyticsEngine()
+    result = engine.summarize([])
+
+    assert result.total_trades == 0
+    assert result.win_rate == 0
+    assert result.profit_factor == 0
+
+
+def test_profit_factor_without_loss() -> None:
+    engine = PerformanceAnalyticsEngine()
+    result = engine.summarize([
+        {"status": "CLOSED", "pnl": 10},
+        {"status": "CLOSED", "pnl": 20},
+    ])
+
+    assert result.profit_factor == inf
+
+
+def test_group_and_ai_bands() -> None:
+    engine = PerformanceAnalyticsEngine()
+
+    by_market = engine.group_by(TRADES, "market")
+    bands = engine.ai_score_bands(TRADES)
+
+    assert by_market["BIST"]["total_trades"] == 2
+    assert by_market["CRYPTO"]["net_pnl"] == 25
+    assert bands["60-69"]["total_trades"] == 1
+    assert bands["70-79"]["total_trades"] == 1
+    assert bands["80-89"]["total_trades"] == 1
+    assert bands["90-100"]["total_trades"] == 1
+
+
+def test_full_report() -> None:
+    engine = PerformanceAnalyticsEngine()
+    report = engine.full_report(TRADES)
+
+    assert "overall" in report
+    assert "by_market" in report
+    assert "by_market_regime" in report
+    assert "by_ai_decision" in report
+    assert "by_sector" in report
+    assert "by_ai_score_band" in report
