@@ -147,6 +147,38 @@ class PortfolioEvaluation:
         return data
 
 
+@dataclass
+class PortfolioSizingPlan:
+    symbol: str
+    side: str
+    entry_price: float
+    stop_price: float
+    risk_budget: float
+    raw_quantity: float
+    evaluation: PortfolioEvaluation
+
+    @property
+    def approved(self) -> bool:
+        return self.evaluation.approved
+
+    @property
+    def approved_quantity(self) -> float:
+        return self.evaluation.approved_quantity
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "symbol": self.symbol,
+            "side": self.side,
+            "entry_price": self.entry_price,
+            "stop_price": self.stop_price,
+            "risk_budget": self.risk_budget,
+            "raw_quantity": self.raw_quantity,
+            "approved": self.approved,
+            "approved_quantity": self.approved_quantity,
+            "evaluation": self.evaluation.to_dict(),
+        }
+
+
 class PortfolioRiskManager:
     def __init__(self, config: PortfolioRiskConfig | None = None) -> None:
         self.config = config or PortfolioRiskConfig()
@@ -156,6 +188,103 @@ class PortfolioRiskManager:
         self.realized_pnl_today = 0.0
         self.positions: dict[str, PortfolioPosition] = {}
         self.history: list[PortfolioEvaluation] = []
+
+    def set_account_state(
+        self,
+        *,
+        equity: float,
+        day_start_equity: float | None = None,
+        realized_pnl_today: float = 0.0,
+    ) -> None:
+        if equity <= 0:
+            raise ValueError("equity pozitif olmalıdır.")
+        if day_start_equity is not None and day_start_equity <= 0:
+            raise ValueError("day_start_equity pozitif olmalıdır.")
+        self.equity = float(equity)
+        self.day_start_equity = float(day_start_equity or equity)
+        self.realized_pnl_today = float(realized_pnl_today)
+
+    def sync_positions(self, positions: list[PortfolioPosition] | tuple[PortfolioPosition, ...]) -> None:
+        synced: dict[str, PortfolioPosition] = {}
+        for position in positions:
+            symbol = self.normalize_symbol(position.symbol)
+            if symbol in synced:
+                raise ValueError(f"Tekrarlanan pozisyon sembolü: {symbol}")
+            if position.entry_price <= 0 or position.current_price <= 0 or position.stop_price <= 0:
+                raise ValueError("Pozisyon fiyatları pozitif olmalıdır.")
+            if position.quantity == 0:
+                raise ValueError("Pozisyon miktarı sıfır olamaz.")
+            position.symbol = symbol
+            position.group = self.normalize_group(position.group)
+            synced[symbol] = position
+        self.positions = synced
+
+    def calculate_risk_quantity(
+        self,
+        *,
+        entry_price: float,
+        stop_price: float,
+        risk_pct: float | None = None,
+    ) -> tuple[float, float]:
+        entry_price = float(entry_price)
+        stop_price = float(stop_price)
+        if entry_price <= 0 or stop_price <= 0:
+            raise ValueError("entry_price ve stop_price pozitif olmalıdır.")
+        stop_distance = abs(entry_price - stop_price)
+        if stop_distance <= 0:
+            raise ValueError("Stop mesafesi sıfır olamaz.")
+        effective_risk_pct = float(
+            self.config.max_risk_per_trade_pct if risk_pct is None else risk_pct
+        )
+        if effective_risk_pct <= 0 or effective_risk_pct > self.config.max_risk_per_trade_pct:
+            raise ValueError("risk_pct, işlem başına risk limitini aşamaz.")
+        risk_budget = self.equity * effective_risk_pct / 100.0
+        return risk_budget / stop_distance, risk_budget
+
+    def plan_trade(
+        self,
+        *,
+        symbol: str,
+        side: str,
+        entry_price: float,
+        stop_price: float,
+        group: str = "DEFAULT",
+        risk_pct: float | None = None,
+        requested_quantity: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> PortfolioSizingPlan:
+        if requested_quantity is None:
+            raw_quantity, risk_budget = self.calculate_risk_quantity(
+                entry_price=entry_price,
+                stop_price=stop_price,
+                risk_pct=risk_pct,
+            )
+        else:
+            raw_quantity = abs(float(requested_quantity))
+            if raw_quantity <= 0:
+                raise ValueError("requested_quantity pozitif olmalıdır.")
+            risk_budget = abs(float(entry_price) - float(stop_price)) * raw_quantity
+
+        evaluation = self.evaluate(
+            PortfolioRequest(
+                symbol=symbol,
+                side=side,
+                price=entry_price,
+                quantity=raw_quantity,
+                stop_price=stop_price,
+                group=group,
+                metadata=dict(metadata or {}),
+            )
+        )
+        return PortfolioSizingPlan(
+            symbol=self.normalize_symbol(symbol),
+            side=str(side).upper(),
+            entry_price=float(entry_price),
+            stop_price=float(stop_price),
+            risk_budget=float(risk_budget),
+            raw_quantity=float(raw_quantity),
+            evaluation=evaluation,
+        )
 
     def evaluate(self, request: PortfolioRequest) -> PortfolioEvaluation:
         request = self._normalize_request(request)
@@ -379,6 +508,24 @@ class PortfolioRiskManager:
             "daily_loss_blocked": (
                 self.daily_loss_pct >= self.config.daily_loss_limit_pct
             ),
+            "limits": asdict(self.config),
+            "utilization": {
+                "exposure": (
+                    self.metrics()["total_exposure_pct"]
+                    / self.config.max_total_exposure_pct
+                    if self.config.max_total_exposure_pct > 0 else 0.0
+                ),
+                "risk": (
+                    self.metrics()["total_risk_pct"]
+                    / self.config.max_total_risk_pct
+                    if self.config.max_total_risk_pct > 0 else 0.0
+                ),
+                "positions": len(self.positions) / self.config.max_open_positions,
+                "daily_loss": (
+                    self.daily_loss_pct / self.config.daily_loss_limit_pct
+                    if self.config.daily_loss_limit_pct > 0 else 0.0
+                ),
+            },
         }
 
     def _normalize_request(self, request: PortfolioRequest) -> PortfolioRequest:
@@ -512,6 +659,29 @@ class PortfolioRuntimeBridge:
                 group=group,
                 metadata=dict(metadata or {}),
             )
+        )
+
+    def plan_execution(
+        self,
+        *,
+        symbol: str,
+        side: str,
+        price: float,
+        stop_price: float,
+        group: str = "DEFAULT",
+        risk_pct: float | None = None,
+        requested_quantity: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> PortfolioSizingPlan:
+        return self.manager.plan_trade(
+            symbol=symbol,
+            side=side,
+            entry_price=price,
+            stop_price=stop_price,
+            group=group,
+            risk_pct=risk_pct,
+            requested_quantity=requested_quantity,
+            metadata=metadata,
         )
 
     def register_approved(
