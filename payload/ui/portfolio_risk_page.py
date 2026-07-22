@@ -83,3 +83,76 @@ def render_portfolio_risk(database) -> None:
         f"Etkin pozisyon sayısı: {report.effective_position_count:.2f}. "
         "Stres testi korelasyonların yükseldiği ortak piyasa düşüşünü yaklaşık olarak simüle eder."
     )
+
+    _render_risk_control_console(database, account_id, currency)
+
+
+def _render_risk_control_console(database, account_id: str, currency: str) -> None:
+    from engine.robot_risk_monitor import (
+        get_risk_lock,
+        list_risk_events,
+        set_risk_lock,
+        summarize_risk_events,
+    )
+
+    st.divider()
+    st.subheader("Robot Risk Kontrol Konsolu")
+    lock = get_risk_lock(database, account_id)
+    status_col, action_col = st.columns([2, 3])
+    with status_col:
+        if lock["locked"]:
+            st.error(f"Acil risk kilidi AKTİF · {lock['reason'] or 'Neden girilmedi'}")
+        else:
+            st.success("Acil risk kilidi kapalı; robot risk kuralları içinde işlem açabilir.")
+        if lock.get("updated_at"):
+            st.caption(f"Son güncelleme: {lock['updated_at']}")
+
+    with action_col:
+        reason = st.text_input(
+            "Kilit nedeni",
+            value=lock.get("reason", ""),
+            placeholder="Örn. piyasa şoku, veri kaynağı sorunu, manuel inceleme",
+            key=f"risk_lock_reason_{account_id}",
+        )
+        c_lock, c_unlock = st.columns(2)
+        if c_lock.button("Acil kilidi etkinleştir", type="primary", key=f"risk_lock_{account_id}"):
+            set_risk_lock(database, account_id, locked=True, reason=reason or "Manuel risk kilidi")
+            st.rerun()
+        if c_unlock.button("Kilidi kaldır", key=f"risk_unlock_{account_id}"):
+            set_risk_lock(database, account_id, locked=False, reason="")
+            st.rerun()
+
+    summary = summarize_risk_events(database, account_id, limit=500)
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Risk Kararı", summary.total_events)
+    c2.metric("Onay", f"%{summary.approval_rate_pct:.1f}", summary.approved_count)
+    c3.metric("Küçültme", f"%{summary.reduction_rate_pct:.1f}", summary.reduced_count)
+    c4.metric("Ret", f"%{summary.rejection_rate_pct:.1f}", summary.rejected_count)
+    c5.metric("Engellenen Tutar", _money(summary.blocked_value, currency))
+
+    filter_col, limit_col = st.columns(2)
+    event_type = filter_col.selectbox(
+        "Karar filtresi",
+        ["ALL", "RISK_APPROVED", "RISK_REDUCED", "RISK_REJECTED"],
+        format_func=lambda value: {
+            "ALL": "Tümü", "RISK_APPROVED": "Onaylanan",
+            "RISK_REDUCED": "Küçültülen", "RISK_REJECTED": "Reddedilen",
+        }[value],
+        key=f"risk_event_type_{account_id}",
+    )
+    limit = limit_col.selectbox("Gösterilecek kayıt", [25, 50, 100, 250], index=1)
+    events = list_risk_events(database, account_id, limit=limit, event_type=event_type)
+    if events:
+        event_df = pd.DataFrame(events)
+        visible = [
+            "created_at", "symbol", "event_type", "reason", "message",
+            "requested_quantity", "approved_quantity", "requested_value",
+            "approved_value", "risk_amount",
+        ]
+        st.dataframe(event_df[visible], use_container_width=True, hide_index=True)
+    else:
+        st.info("Bu hesap için henüz risk kararı kaydı bulunmuyor.")
+
+    if summary.top_reasons:
+        st.caption("En sık risk nedenleri")
+        st.dataframe(pd.DataFrame(summary.top_reasons), use_container_width=True, hide_index=True)
