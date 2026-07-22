@@ -9,6 +9,7 @@ from database.background_repository import latest_results_by_source
 from database.robot_settings_repository import load_robot_settings, save_robot_settings
 from engine.robot_engine import RobotConfig, RobotEngine
 from engine.market_accounts import MARKET_ACCOUNTS, account_for_market, normalize_market
+from engine.trade_performance_analytics import equity_curve, performance_by, summarize_trade_history
 
 
 def _format_money(value: float, currency: str = "TRY") -> str:
@@ -51,55 +52,50 @@ def _format_duration(minutes: float | int | None) -> str:
 
 
 def _render_trade_intelligence_summary(history: pd.DataFrame) -> None:
-    closed = history[
-        history["side"].astype(str).str.upper() == "SELL"
-    ].copy()
-
-    if closed.empty:
+    summary = summarize_trade_history(history)
+    if summary.closed_trades == 0:
         return
 
-    quality = pd.to_numeric(closed["trade_quality_score"], errors="coerce")
-    profit_pct = pd.to_numeric(closed["profit_pct"], errors="coerce")
-    rr = pd.to_numeric(closed["risk_reward"], errors="coerce")
-    holding = pd.to_numeric(closed["holding_minutes"], errors="coerce")
-
-    st.subheader("Trade Intelligence Özeti")
-
+    st.subheader("Trade Intelligence 10.18A")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Analiz Edilen İşlem", int(quality.notna().sum()))
-    c2.metric(
-        "Ortalama Kalite",
-        f"{quality.dropna().mean():.1f}/100" if quality.notna().any() else "—",
-    )
-    c3.metric(
-        "Ortalama Kâr",
-        f"%{profit_pct.dropna().mean():+.2f}" if profit_pct.notna().any() else "—",
-    )
+    c1.metric("Kapanan İşlem", summary.closed_trades)
+    c2.metric("Başarı Oranı", f"%{summary.win_rate_pct:.1f}")
+    c3.metric("Net K/Z", f"{summary.net_profit:+,.2f}")
     c4.metric(
-        "Ortalama R/R",
-        f"{rr.dropna().mean():.2f}" if rr.notna().any() else "—",
+        "Profit Factor",
+        "∞" if summary.profit_factor == float("inf") else (f"{summary.profit_factor:.2f}" if summary.profit_factor is not None else "—"),
     )
 
-    d1, d2, d3 = st.columns(3)
-    grades = closed["trade_grade"].fillna("").astype(str)
-    d1.metric("A Sınıfı İşlem", int(grades.isin(["A+", "A"]).sum()))
-    d2.metric("Kazanan İşlem", int((profit_pct > 0).sum()))
-    d3.metric(
-        "Ortalama Süre",
-        _format_duration(holding.dropna().mean()) if holding.notna().any() else "—",
-    )
+    d1, d2, d3, d4 = st.columns(4)
+    d1.metric("Ortalama Kazanç", f"{summary.average_win:+,.2f}")
+    d2.metric("Ortalama Kayıp", f"-{summary.average_loss:,.2f}" if summary.average_loss else "0.00")
+    d3.metric("Maksimum Drawdown", f"-{summary.maximum_drawdown:,.2f}")
+    d4.metric("Ortalama Süre", _format_duration(summary.average_holding_minutes))
 
-    grade_order = ["A+", "A", "B", "C", "D"]
-    grade_counts = (
-        grades[grades != ""]
-        .value_counts()
-        .reindex(grade_order, fill_value=0)
-        .rename_axis("İşlem Notu")
-        .reset_index(name="İşlem Sayısı")
-    )
-    if not grade_counts.empty:
-        st.caption("İşlem kalitesi dağılımı")
-        st.bar_chart(grade_counts, x="İşlem Notu", y="İşlem Sayısı")
+    e1, e2, e3, e4 = st.columns(4)
+    e1.metric("En İyi İşlem", f"{summary.best_trade:+,.2f}")
+    e2.metric("En Kötü İşlem", f"{summary.worst_trade:+,.2f}")
+    e3.metric("Ortalama MFE", f"%{summary.average_mfe_pct:+.2f}")
+    e4.metric("Ortalama MAE", f"%{summary.average_mae_pct:+.2f}")
+
+    curve = equity_curve(history)
+    if not curve.empty:
+        st.caption("Gerçekleşmiş kâr/zarar eğrisi")
+        st.line_chart(curve, x="Tarih", y="Kümülatif K/Z")
+
+    tabs = st.tabs(["Piyasa Performansı", "Çıkış Nedenleri", "Sembol Performansı"])
+    breakdowns = [
+        ("market", tabs[0], "Piyasa"),
+        ("reason", tabs[1], "Çıkış Nedeni"),
+        ("symbol", tabs[2], "Kod"),
+    ]
+    for column, tab, label in breakdowns:
+        with tab:
+            table = performance_by(history, column)
+            if table.empty:
+                st.info("Yeterli kapanmış işlem verisi yok.")
+            else:
+                st.dataframe(table.rename(columns={column: label}), width="stretch", hide_index=True)
 
 
 
