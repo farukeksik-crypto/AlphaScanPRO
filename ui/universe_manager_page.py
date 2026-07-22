@@ -121,3 +121,60 @@ _original_render_universe_manager = render_universe_manager
 def render_universe_manager(manager: UniverseManager) -> None:
     _original_render_universe_manager(manager)
     _render_universe_performance_center()
+
+
+def _render_multi_universe_accounts() -> None:
+    from config.settings import DATABASE_FILE
+    from database.db import Database
+    from database.robot_migrations import migrate_database_object
+
+    st.divider()
+    st.subheader("💼 Evren Bazlı Sanal Hesaplar — Sprint 10.20B")
+    st.caption(
+        "BIST Katılım, Arındırma 0 ve Tüm BIST robotları ayrı nakit, pozisyon ve "
+        "performans hesapları kullanır. Bir evrenin zararı veya sermaye kullanımı diğerini etkilemez."
+    )
+    database = Database(DATABASE_FILE)
+    migrate_database_object(database)
+    with database.connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT account_id, market, currency, enabled, starting_balance, balance,
+                   daily_profit, total_profit
+            FROM robot_accounts
+            WHERE account_id IN ('bist_katilim','bist_arindirma0','bist_all')
+            ORDER BY CASE account_id
+                WHEN 'bist_katilim' THEN 1
+                WHEN 'bist_arindirma0' THEN 2
+                ELSE 3 END
+            """
+        ).fetchall()
+    labels = {
+        "bist_katilim": "BIST Katılım",
+        "bist_arindirma0": "Arındırma 0",
+        "bist_all": "Tüm BIST",
+    }
+    frame = pd.DataFrame([
+        {
+            "Hesap": labels.get(row[0], row[0]),
+            "Durum": "Aktif" if row[3] else "Kapalı",
+            "Başlangıç": float(row[4]),
+            "Nakit": float(row[5]),
+            "Günlük K/Z": float(row[6]),
+            "Toplam K/Z": float(row[7]),
+            "Para Birimi": row[2],
+        }
+        for row in rows
+    ])
+    if frame.empty:
+        st.info("Evren hesapları henüz oluşturulmadı.")
+    else:
+        st.dataframe(frame, width="stretch", hide_index=True)
+
+
+_previous_render_universe_manager_1020b = render_universe_manager
+
+
+def render_universe_manager(manager: UniverseManager) -> None:
+    _previous_render_universe_manager_1020b(manager)
+    _render_multi_universe_accounts()

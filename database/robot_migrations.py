@@ -51,9 +51,12 @@ TRADE_HISTORY_COLUMNS = {
 }
 
 ACCOUNT_DEFAULTS = (
-    ("bist_main", "BIST", "TRY", 1_000_000.0),
-    ("crypto_main", "KRIPTO", "USDT", 100_000.0),
-    ("commodity_main", "EMTIA", "USD", 100_000.0),
+    ("bist_main", "BIST", "TRY", 25_000_000.0),
+    ("bist_katilim", "BIST", "TRY", 10_000_000.0),
+    ("bist_arindirma0", "BIST", "TRY", 10_000_000.0),
+    ("bist_all", "BIST", "TRY", 25_000_000.0),
+    ("crypto_main", "KRIPTO", "USDT", 1_000_000.0),
+    ("commodity_main", "EMTIA", "USD", 1_000_000.0),
 )
 
 
@@ -71,22 +74,76 @@ def _add_missing_columns(connection: sqlite3.Connection, table_name: str, column
     return added
 
 
-def _ensure_accounts(connection: sqlite3.Connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS robot_accounts (
-            account_id TEXT PRIMARY KEY,
-            market TEXT NOT NULL UNIQUE,
-            currency TEXT NOT NULL,
-            enabled INTEGER NOT NULL DEFAULT 0,
-            starting_balance REAL NOT NULL,
-            balance REAL NOT NULL,
-            daily_profit REAL NOT NULL DEFAULT 0,
-            total_profit REAL NOT NULL DEFAULT 0,
-            updated_at TEXT
+def _robot_accounts_has_unique_market(connection: sqlite3.Connection) -> bool:
+    row = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='robot_accounts'"
+    ).fetchone()
+    sql = str(row[0] or "").upper() if row else ""
+    return "MARKET TEXT NOT NULL UNIQUE" in sql or "UNIQUE(MARKET)" in sql.replace(" ", "")
+
+
+def _ensure_account_table_schema(connection: sqlite3.Connection) -> None:
+    exists = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='robot_accounts'"
+    ).fetchone()
+    if not exists:
+        connection.execute(
+            """
+            CREATE TABLE robot_accounts (
+                account_id TEXT PRIMARY KEY,
+                market TEXT NOT NULL,
+                currency TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 0,
+                starting_balance REAL NOT NULL,
+                balance REAL NOT NULL,
+                daily_profit REAL NOT NULL DEFAULT 0,
+                total_profit REAL NOT NULL DEFAULT 0,
+                updated_at TEXT
+            )
+            """
         )
-        """
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_robot_accounts_market ON robot_accounts(market)"
+        )
+        return
+
+    if _robot_accounts_has_unique_market(connection):
+        connection.execute("ALTER TABLE robot_accounts RENAME TO robot_accounts_legacy_1020b")
+        connection.execute(
+            """
+            CREATE TABLE robot_accounts (
+                account_id TEXT PRIMARY KEY,
+                market TEXT NOT NULL,
+                currency TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 0,
+                starting_balance REAL NOT NULL,
+                balance REAL NOT NULL,
+                daily_profit REAL NOT NULL DEFAULT 0,
+                total_profit REAL NOT NULL DEFAULT 0,
+                updated_at TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO robot_accounts(
+                account_id, market, currency, enabled, starting_balance, balance,
+                daily_profit, total_profit, updated_at
+            )
+            SELECT account_id, market, currency, enabled, starting_balance, balance,
+                   daily_profit, total_profit, updated_at
+            FROM robot_accounts_legacy_1020b
+            """
+        )
+        connection.execute("DROP TABLE robot_accounts_legacy_1020b")
+
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_robot_accounts_market ON robot_accounts(market)"
     )
+
+
+def _ensure_accounts(connection: sqlite3.Connection) -> None:
+    _ensure_account_table_schema(connection)
 
     old = connection.execute(
         "SELECT enabled, balance, daily_profit, total_profit, updated_at FROM robot_state WHERE id=1"
@@ -94,10 +151,16 @@ def _ensure_accounts(connection: sqlite3.Connection) -> None:
     old_values = old or (0, 1_000_000.0, 0.0, 0.0, None)
 
     for account_id, market, currency, starting in ACCOUNT_DEFAULTS:
-        if market == "BIST":
-            values = (account_id, market, currency, int(old_values[0]), starting, float(old_values[1]), float(old_values[2]), float(old_values[3]), old_values[4])
+        if account_id == "bist_main":
+            values = (
+                account_id, market, currency, int(old_values[0]), starting,
+                float(old_values[1]), float(old_values[2]), float(old_values[3]), old_values[4]
+            )
         else:
-            values = (account_id, market, currency, 0, starting, starting, 0.0, 0.0, None)
+            # Yeni evren hesapları varsayılan olarak ana BIST robotunun açık/kapalı
+            # durumunu devralır; nakit ve performansları bağımsız başlar.
+            enabled = int(old_values[0]) if market == "BIST" else 0
+            values = (account_id, market, currency, enabled, starting, starting, 0.0, 0.0, None)
         connection.execute(
             """
             INSERT OR IGNORE INTO robot_accounts(
@@ -108,7 +171,7 @@ def _ensure_accounts(connection: sqlite3.Connection) -> None:
             values,
         )
 
-    # Eski kayıtları güvenli varsayımla piyasalara dağıt.
+    # Eski kayıtları güvenli varsayımla ana piyasa hesaplarına dağıt.
     connection.execute(
         """
         UPDATE positions

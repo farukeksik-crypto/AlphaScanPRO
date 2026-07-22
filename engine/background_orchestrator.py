@@ -8,7 +8,7 @@ from config.market_universes import get_crypto_pairs
 from engine.analysis_engine import analyze_signal_payload
 from engine.filter_analytics import FilterAnalytics
 from engine.robot_engine import RobotConfig, RobotEngine
-from engine.market_accounts import account_for_market, normalize_market
+from engine.market_accounts import account_for_context, normalize_market
 from database.robot_settings_repository import load_robot_settings
 from engine.notification_manager import NotificationManager
 from engine.scanner import scan_commodities, scan_crypto, scan_yahoo_items
@@ -22,12 +22,12 @@ class BackgroundOrchestrator:
         self.settings = settings
         self.logger = logger
         self.notifier = NotificationManager(database, settings, logger)
-        self.robot = self._robot_for_market("BIST")
+        self.robot = self._robot_for_market("BIST", "Genel")
         self.filter_analytics = FilterAnalytics(database, logger)
 
-    def _robot_for_market(self, market: str) -> RobotEngine:
+    def _robot_for_market(self, market: str, universe: str = "") -> RobotEngine:
         normalized = normalize_market(market)
-        account = account_for_market(normalized)
+        account = account_for_context(normalized, universe)
         saved = load_robot_settings(
             self.database,
             account_id=account["account_id"],
@@ -160,10 +160,10 @@ class BackgroundOrchestrator:
             )
             connection.commit()
 
-    def _candidate_diagnostics(self, rows: list[dict[str, Any]], market: str = "BIST", limit: int = 8) -> list[str]:
+    def _candidate_diagnostics(self, rows: list[dict[str, Any]], market: str = "BIST", universe: str = "", limit: int = 8) -> list[str]:
         diagnostics: list[str] = []
         ranked = sorted(rows, key=lambda row: float(row.get("Puan", 0) or 0), reverse=True)
-        robot = self._robot_for_market(market)
+        robot = self._robot_for_market(market, universe)
         state = robot.get_state()
         for row in ranked[:limit]:
             symbol = str(row.get("Kod", "?"))
@@ -193,7 +193,7 @@ class BackgroundOrchestrator:
         return diagnostics
 
     def _process_robot(self, rows: list[dict[str, Any]], market: str, universe: str, enabled: bool):
-        robot = self._robot_for_market(market)
+        robot = self._robot_for_market(market, universe)
         latest_prices = {
             str(row.get("Kod", "")): float(row.get("Fiyat", 0) or 0)
             for row in rows if row.get("Kod") and float(row.get("Fiyat", 0) or 0) > 0
@@ -253,7 +253,7 @@ class BackgroundOrchestrator:
             rows = self._normalize(rows, market, universe)
             self._save_results(run_id, rows, market, universe)
 
-            analytics_robot = self._robot_for_market(market)
+            analytics_robot = self._robot_for_market(market, universe)
             analytics_count = self.filter_analytics.record_rows(
                 run_id=run_id,
                 rows=rows,
@@ -282,7 +282,7 @@ class BackgroundOrchestrator:
             if successful_actions:
                 self._notify_actions(market, universe, successful_actions)
             else:
-                diagnostics = self._candidate_diagnostics(rows, market)
+                diagnostics = self._candidate_diagnostics(rows, market, universe)
 
                 self._save_robot_diagnostics(
                     market=market,

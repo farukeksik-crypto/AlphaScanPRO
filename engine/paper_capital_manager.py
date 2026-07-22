@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from engine.market_accounts import MARKET_ACCOUNTS
+from engine.market_accounts import all_account_profiles
 
 
 @dataclass(frozen=True)
@@ -55,8 +55,9 @@ class PaperCapitalManager:
         results: list[CapitalUpgradeResult] = []
         now = self._now()
         with self.database.connect() as connection:
-            for market, target in MARKET_ACCOUNTS.items():
+            for target in all_account_profiles():
                 account_id = str(target["account_id"])
+                market = str(target["market"])
                 currency = str(target["currency"])
                 target_start = float(target["starting_balance"])
                 row = connection.execute(
