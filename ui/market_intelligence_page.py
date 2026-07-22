@@ -5,6 +5,7 @@ import streamlit as st
 
 from engine.market_regime_engine import MarketRegimeEngine
 from engine.adaptive_strategy_engine import AdaptiveStrategyEngine
+from engine.multi_timeframe_intelligence import MultiTimeframeIntelligence
 
 
 MARKETS = {
@@ -23,6 +24,42 @@ def _load(data_engine, market: str, symbol: str, timeframe: str) -> pd.DataFrame
     interval = "1d" if timeframe == "1d" else "1h"
     period = "2y" if interval == "1d" else "60d"
     return data_engine.get_yahoo(yahoo_symbol, period=period, interval=interval)
+
+
+def _resample_4h(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame is None or frame.empty or not isinstance(frame.index, pd.DatetimeIndex):
+        return frame
+    mapping = {
+        "open": "first", "high": "max", "low": "min",
+        "close": "last", "volume": "sum",
+        "Open": "first", "High": "max", "Low": "min",
+        "Close": "last", "Volume": "sum",
+    }
+    usable = {key: value for key, value in mapping.items() if key in frame.columns}
+    return frame.resample("4h").agg(usable).dropna() if usable else frame
+
+
+def _load_timeframes(data_engine, market: str, symbol: str) -> dict[str, pd.DataFrame]:
+    frames: dict[str, pd.DataFrame] = {}
+    for timeframe in ("15m", "1h", "1d"):
+        try:
+            if market == "Kripto":
+                frames[timeframe] = data_engine.get_binance(symbol, timeframe=timeframe, limit=1000)
+            else:
+                yahoo_symbol = "XU100.IS" if market == "BIST" and symbol == "XU100" else (f"{symbol}.IS" if market == "BIST" else symbol)
+                interval = timeframe
+                period = "60d" if timeframe in {"15m", "1h"} else "2y"
+                frames[timeframe] = data_engine.get_yahoo(yahoo_symbol, period=period, interval=interval)
+        except Exception:
+            continue
+    if market == "Kripto":
+        try:
+            frames["4h"] = data_engine.get_binance(symbol, timeframe="4h", limit=1000)
+        except Exception:
+            pass
+    elif "1h" in frames:
+        frames["4h"] = _resample_4h(frames["1h"])
+    return {key: value for key, value in frames.items() if value is not None and not value.empty}
 
 
 def render_market_intelligence(data_engine) -> None:
@@ -87,3 +124,26 @@ def render_market_intelligence(data_engine) -> None:
     st.dataframe(adaptive_table, use_container_width=True, hide_index=True)
     for item in adaptive.reasons:
         st.caption(f"• {item}")
+
+    st.subheader("Çoklu Zaman Dilimi Matrisi")
+    try:
+        mtf_frames = _load_timeframes(data_engine, market, symbol)
+        mtf = MultiTimeframeIntelligence().analyze_frames(mtf_frames)
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Baskın Rejim", mtf.dominant_regime)
+        m2.metric("Uyum", f"%{mtf.alignment_score:.1f}")
+        m3.metric("Çatışma", mtf.conflict_level)
+        m4.metric("MTF Modu", mtf.recommendation)
+        matrix = pd.DataFrame([item.to_dict() for item in mtf.timeframes])
+        if not matrix.empty:
+            matrix = matrix.rename(columns={
+                "timeframe": "Zaman Dilimi", "weight": "Ağırlık", "regime": "Rejim",
+                "score": "Skor", "confidence": "Güven", "direction": "Yön",
+                "allow_new_positions": "Yeni Pozisyon",
+            })
+            st.dataframe(matrix, use_container_width=True, hide_index=True)
+        for item in mtf.reasons:
+            st.caption(f"• {item}")
+    except Exception as exc:
+        st.warning(f"Çoklu zaman dilimi analizi üretilemedi: {exc}")
+

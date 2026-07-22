@@ -6,6 +6,7 @@ from engine.sector_correlation_engine import SectorCorrelationEngine
 
 from engine.market_regime_engine import MarketRegimeEngine
 from engine.adaptive_strategy_engine import AdaptiveStrategyEngine
+from engine.multi_timeframe_intelligence import MultiTimeframeIntelligence
 
 from engine.smart_exit import SmartExitConfig, SmartExitAction, evaluate_smart_exit
 
@@ -97,6 +98,7 @@ class RobotConfig:
 
     # Sprint 10.16B — Adaptive Strategy Engine
     adaptive_strategy_enabled: bool = True
+    multi_timeframe_intelligence_enabled: bool = True
 
     # Sprint 7.2B — Sector & Correlation Guard
     sector_correlation_guard_enabled: bool = True
@@ -126,6 +128,7 @@ class RobotEngine:
         self.account_id = str(self.config.account_id or "bist_main")
         self.currency = str(self.config.currency or "TRY")
         self.market_regime_engine = MarketRegimeEngine()
+        self.multi_timeframe_intelligence = MultiTimeframeIntelligence(regime_engine=self.market_regime_engine)
         self.adaptive_strategy_engine = AdaptiveStrategyEngine(
             base_minimum_entry_score=self.config.minimum_score,
             base_trailing_atr_multiplier=self.config.atr_trailing_multiplier,
@@ -732,6 +735,27 @@ class RobotEngine:
             }
         return self.adaptive_strategy_engine.build_policy(regime).to_dict()
 
+    def get_multi_timeframe_result(self, multi_timeframe_frames=None) -> dict[str, Any]:
+        if not getattr(self.config, "multi_timeframe_intelligence_enabled", True):
+            return {
+                "dominant_regime": "DISABLED", "alignment_score": 100.0,
+                "confidence": 100.0, "conflict_level": "LOW",
+                "allow_new_positions": True, "risk_multiplier": 1.0,
+                "position_size_multiplier": 1.0,
+                "minimum_entry_score_delta": 0.0, "recommendation": "NORMAL",
+                "reasons": ["Multi-Timeframe Intelligence kapalı."], "timeframes": [],
+            }
+        if not multi_timeframe_frames:
+            return {
+                "dominant_regime": "NOT_PROVIDED", "alignment_score": 100.0,
+                "confidence": 100.0, "conflict_level": "LOW",
+                "allow_new_positions": True, "risk_multiplier": 1.0,
+                "position_size_multiplier": 1.0,
+                "minimum_entry_score_delta": 0.0, "recommendation": "NORMAL",
+                "reasons": ["Çoklu zaman dilimi verisi yok; mevcut davranış korundu."], "timeframes": [],
+            }
+        return self.multi_timeframe_intelligence.analyze_frames(multi_timeframe_frames).to_dict()
+
     def market_regime_lock_reason(self, market_frame=None) -> str:
         result = self.get_market_regime_result(market_frame)
         if not result.get("allow_new_positions", True):
@@ -870,6 +894,7 @@ class RobotEngine:
         universe: str = "",
         strategy_profile: str | None = None,
         market_frame=None,
+        multi_timeframe_frames=None,
         sector=None,
         open_positions=None,
         candidate_prices=None,
@@ -924,6 +949,18 @@ class RobotEngine:
                 "sector_correlation": sector_correlation_result,
             }
 
+        multi_timeframe_result = self.get_multi_timeframe_result(multi_timeframe_frames)
+        if not multi_timeframe_result.get("allow_new_positions", True):
+            return {
+                "ok": False,
+                "message": (
+                    "Multi-Timeframe Intelligence yeni işlemi kilitledi: "
+                    f"{multi_timeframe_result.get('dominant_regime')} / "
+                    f"{multi_timeframe_result.get('conflict_level')}"
+                ),
+                "multi_timeframe": multi_timeframe_result,
+            }
+
         market_regime_lock = self.market_regime_lock_reason(market_frame)
         if market_regime_lock:
             return {"ok": False, "message": market_regime_lock,
@@ -937,6 +974,7 @@ class RobotEngine:
                 "adaptive_strategy": adaptive_policy,
             }
         adaptive_minimum_score = float(adaptive_policy.get("minimum_entry_score", self.config.minimum_score))
+        adaptive_minimum_score += float(multi_timeframe_result.get("minimum_entry_score_delta", 0.0) or 0.0)
         if float(score) < adaptive_minimum_score:
             return {
                 "ok": False,
@@ -1002,6 +1040,7 @@ class RobotEngine:
             market_frame,
         )
         quantity *= float(adaptive_policy.get("position_size_multiplier", 1.0) or 0.0)
+        quantity *= float(multi_timeframe_result.get("position_size_multiplier", 1.0) or 0.0)
         if quantity <= 0:
             return {
                 "ok": False,
