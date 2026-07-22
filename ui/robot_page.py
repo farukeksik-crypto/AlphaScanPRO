@@ -10,6 +10,7 @@ from database.robot_settings_repository import load_robot_settings, save_robot_s
 from engine.robot_engine import RobotConfig, RobotEngine
 from engine.market_accounts import MARKET_ACCOUNTS, account_for_market, normalize_market
 from engine.trade_performance_analytics import equity_curve, performance_by, summarize_trade_history
+from engine.position_lifecycle_analytics import lifecycle_frame, lifecycle_summary
 
 
 def _format_money(value: float, currency: str = "TRY") -> str:
@@ -96,6 +97,49 @@ def _render_trade_intelligence_summary(history: pd.DataFrame) -> None:
                 st.info("Yeterli kapanmış işlem verisi yok.")
             else:
                 st.dataframe(table.rename(columns={column: label}), width="stretch", hide_index=True)
+
+
+
+def _render_position_lifecycle(positions: pd.DataFrame) -> None:
+    frame = lifecycle_frame(positions)
+    if frame.empty:
+        return
+
+    summary = lifecycle_summary(positions)
+    st.subheader("Pozisyon Yaşam Döngüsü 10.18B")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Açık Pozisyon", summary["open_positions"])
+    c2.metric("Hedef 1 Tamamlandı", summary["target1_completed"])
+    c3.metric("Başa Baş Aktif", summary["break_even_active"])
+    c4.metric("Trailing Aktif", summary["trailing_active"])
+
+    d1, d2, d3 = st.columns(3)
+    d1.metric("Ortalama Açık Kalma", _format_duration(summary["average_holding_minutes"]))
+    d2.metric("Ortalama Canlı MFE", f'%{summary["average_mfe_pct"]:+.2f}')
+    d3.metric("Ortalama Canlı MAE", f'%{summary["average_mae_pct"]:+.2f}')
+
+    display = frame.rename(columns={
+        "symbol": "Kod", "lifecycle_stage": "Yönetim Aşaması",
+        "holding_minutes": "Açık Süre (dk)", "mfe_pct_live": "Canlı MFE %",
+        "mae_pct_live": "Canlı MAE %", "remaining_quantity_pct": "Kalan Miktar %",
+        "target1_seen": "Hedef 1 Görüldü", "target2_seen": "Hedef 2 Görüldü",
+        "stop_seen": "Stop Görüldü", "break_even_active": "Başa Baş",
+        "trailing_active": "Trailing", "target1_completed": "Hedef 1 Tamam",
+        "why_still_open": "Neden Hâlâ Açık?",
+    })
+    columns = [
+        "Kod", "Yönetim Aşaması", "Açık Süre (dk)", "Canlı MFE %",
+        "Canlı MAE %", "Kalan Miktar %", "Hedef 1 Görüldü",
+        "Hedef 1 Tamam", "Başa Baş", "Trailing", "Stop Görüldü",
+        "Neden Hâlâ Açık?",
+    ]
+    st.dataframe(
+        display[[c for c in columns if c in display.columns]].style.format({
+            "Açık Süre (dk)": "{:,.0f}", "Canlı MFE %": "{:+.2f}%",
+            "Canlı MAE %": "{:+.2f}%", "Kalan Miktar %": "{:.1f}%",
+        }, na_rep="—"),
+        width="stretch", hide_index=True,
+    )
 
 
 
@@ -946,6 +990,7 @@ def render_robot(database):
         st.info("Robotun açık sanal pozisyonu bulunmuyor.")
     else:
         positions = positions.copy()
+        _render_position_lifecycle(positions)
         quantity_numeric = pd.to_numeric(positions["quantity"], errors="coerce").fillna(0.0)
         entry_numeric = pd.to_numeric(positions["entry_price"], errors="coerce").fillna(0.0)
         stop_numeric = pd.to_numeric(positions["stop_price"], errors="coerce").fillna(0.0)
