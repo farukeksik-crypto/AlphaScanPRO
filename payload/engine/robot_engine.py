@@ -15,6 +15,8 @@ from typing import Any
 import pandas as pd
 
 from engine.trade_intelligence import analyze_closed_trade
+from engine.portfolio_risk_manager import PortfolioRiskConfig
+from engine.robot_risk_enforcement import RobotRiskEnforcer
 
 
 @dataclass
@@ -68,6 +70,8 @@ class RobotConfig:
     max_portfolio_exposure_pct: float = 80.0
     max_single_position_exposure_pct: float = 25.0
     min_cash_reserve_pct: float = 20.0
+    robot_risk_enforcement_enabled: bool = True
+    max_group_exposure_pct: float = 40.0
 
     minimum_score: float = 75.0
     minimum_confidence: float = 0.0
@@ -128,6 +132,22 @@ class RobotEngine:
             strong_buy_score=self.config.ai_strong_buy_score,
             buy_score=self.config.ai_buy_score,
             watch_score=self.config.ai_watch_score,
+        )
+        self.robot_risk_enforcer = RobotRiskEnforcer(
+            self.database,
+            account_id=self.account_id,
+            market=self.market,
+            config=PortfolioRiskConfig(
+                initial_equity=float(self.config.starting_balance),
+                max_open_positions=int(self.config.max_positions),
+                max_total_exposure_pct=float(self.config.max_portfolio_exposure_pct),
+                max_symbol_exposure_pct=float(self.config.max_single_position_exposure_pct),
+                max_group_exposure_pct=float(self.config.max_group_exposure_pct),
+                max_total_risk_pct=float(self.config.max_portfolio_risk_pct),
+                max_risk_per_trade_pct=float(self.config.risk_per_trade_pct),
+                daily_loss_limit_pct=float(self.config.max_daily_loss_pct),
+                allow_position_reduction=True,
+            ),
         )
 
     @staticmethod
@@ -801,6 +821,12 @@ class RobotEngine:
         )
         return result.to_dict()
 
+    def set_emergency_risk_lock(self, locked: bool, reason: str = "") -> None:
+        self.robot_risk_enforcer.set_manual_lock(locked, reason)
+
+    def get_emergency_risk_lock(self) -> dict[str, Any]:
+        return self.robot_risk_enforcer.lock_status()
+
     def open_position(
         self,
         *,
@@ -930,6 +956,29 @@ class RobotEngine:
             quantity,
             market_frame,
         )
+
+        risk_enforcement = None
+        if self.config.robot_risk_enforcement_enabled:
+            open_frame = self.get_open_positions()
+            open_items = open_frame.to_dict("records") if not open_frame.empty else []
+            risk_enforcement = self.robot_risk_enforcer.evaluate(
+                symbol=symbol, price=price, stop_price=stop_price,
+                requested_quantity=quantity,
+                equity=float(state.get("starting_balance") or self.config.starting_balance)
+                       + float(state.get("total_profit") or 0.0),
+                day_start_equity=float(state.get("starting_balance") or self.config.starting_balance),
+                realized_pnl_today=self.get_today_realized_profit(),
+                positions=open_items, group=universe or market,
+                metadata={"score": score, "decision": decision, "strategy_profile": strategy_profile or self.config.strategy_profile},
+            )
+            if not risk_enforcement.approved:
+                return {
+                    "ok": False,
+                    "message": f"Robot Risk Enforcement reddetti: {risk_enforcement.message}",
+                    "risk_enforcement": risk_enforcement.to_dict(),
+                }
+            quantity = float(risk_enforcement.approved_quantity)
+
         budget = float(quantity_info["budget"])
         sizing_mode = str(quantity_info["sizing_mode"])
         estimated_risk = float(quantity_info["risk_amount"])
@@ -1111,6 +1160,7 @@ class RobotEngine:
             "portfolio_risk": portfolio_summary["risk_pct"],
             "portfolio_exposure": portfolio_summary["exposure_pct"],
             "cash_reserve": portfolio_summary["cash_reserve_pct"],
+            "risk_enforcement": risk_enforcement.to_dict() if risk_enforcement else None,
         }
 
     def close_position(
