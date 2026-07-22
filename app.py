@@ -19,6 +19,7 @@ from ui.financial_analysis_page import render_financial_analysis
 from ui.advanced_chart_page import render_advanced_chart
 from ui.relative_strength_page import render_relative_strength
 from ui.money_flow_page import render_money_flow
+from ui.market_intelligence_page import render_market_intelligence
 from ui.performance_analytics_page import render_performance_analytics
 from ui.portfolio_risk_page import render_portfolio_risk
 from ui.robot_page import render_robot
@@ -70,6 +71,7 @@ page = st.sidebar.radio(
         "Sanal İşlem Robotu",
         "Performans Analizi PRO",
         "Portföy Risk Merkezi",
+        "Market Intelligence",
         "Robot Intelligence",
         "Robot İşlem Tekrarı",
         "Yapay Zekâ Öğrenme",
@@ -123,6 +125,9 @@ elif page == "Performans Analizi PRO":
 
 elif page == "Portföy Risk Merkezi":
     render_portfolio_risk(database)
+
+elif page == "Market Intelligence":
+    render_market_intelligence(data_engine)
 
 elif page == "Robot Intelligence":
     render_robot_intelligence(database)
