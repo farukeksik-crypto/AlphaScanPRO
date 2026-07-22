@@ -30,5 +30,7 @@
   },
   "bist_market_start": "09:45",
   "bist_market_end": "18:15",
-  "max_saved_rows_per_run": 500
+  "max_saved_rows_per_run": 500,
+  "notify_worker_start": false,
+  "notify_no_action": false
 }
