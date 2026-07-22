@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from engine.market_regime_engine import MarketRegimeEngine
+from engine.adaptive_strategy_engine import AdaptiveStrategyEngine
 
 
 MARKETS = {
@@ -41,6 +42,7 @@ def render_market_intelligence(data_engine) -> None:
         return
 
     result = MarketRegimeEngine().analyze_market_data(frame)
+    adaptive = AdaptiveStrategyEngine().build_policy(result)
     cols = st.columns(6)
     cols[0].metric("Rejim", result.regime)
     cols[1].metric("Rejim Skoru", f"{result.score:.1f}/100")
@@ -71,3 +73,17 @@ def render_market_intelligence(data_engine) -> None:
         {"Kural": "Hedef nakit", "Değer": f"%{result.cash_target_pct:.0f}"},
     ])
     st.dataframe(policy, use_container_width=True, hide_index=True)
+
+    st.subheader("Adaptif Strateji Politikası")
+    adaptive_table = pd.DataFrame([
+        {"Ayar": "Profil", "Değer": adaptive.profile},
+        {"Ayar": "Minimum giriş puanı", "Değer": f"{adaptive.minimum_entry_score:.1f}"},
+        {"Ayar": "Pozisyon çarpanı", "Değer": f"x{adaptive.position_size_multiplier:.2f}"},
+        {"Ayar": "Hedef 1 çarpanı", "Değer": f"x{adaptive.target1_multiplier:.2f}"},
+        {"Ayar": "Hedef 2 çarpanı", "Değer": f"x{adaptive.target2_multiplier:.2f}"},
+        {"Ayar": "ATR trailing", "Değer": f"x{adaptive.trailing_atr_multiplier:.2f}"},
+        {"Ayar": "Smart Exit farkı", "Değer": f"{adaptive.smart_exit_score_delta:+d}"},
+    ])
+    st.dataframe(adaptive_table, use_container_width=True, hide_index=True)
+    for item in adaptive.reasons:
+        st.caption(f"• {item}")

@@ -5,6 +5,7 @@ from engine.ai_decision_engine import AIDecisionEngine
 from engine.sector_correlation_engine import SectorCorrelationEngine
 
 from engine.market_regime_engine import MarketRegimeEngine
+from engine.adaptive_strategy_engine import AdaptiveStrategyEngine
 
 from engine.smart_exit import SmartExitConfig, SmartExitAction, evaluate_smart_exit
 
@@ -94,6 +95,9 @@ class RobotConfig:
     market_regime_risk_scaling_enabled: bool = True
     market_regime_position_scaling_enabled: bool = True
 
+    # Sprint 10.16B — Adaptive Strategy Engine
+    adaptive_strategy_enabled: bool = True
+
     # Sprint 7.2B — Sector & Correlation Guard
     sector_correlation_guard_enabled: bool = True
     max_sector_positions: int = 2
@@ -122,6 +126,11 @@ class RobotEngine:
         self.account_id = str(self.config.account_id or "bist_main")
         self.currency = str(self.config.currency or "TRY")
         self.market_regime_engine = MarketRegimeEngine()
+        self.adaptive_strategy_engine = AdaptiveStrategyEngine(
+            base_minimum_entry_score=self.config.minimum_score,
+            base_trailing_atr_multiplier=self.config.atr_trailing_multiplier,
+            base_max_holding_hours=self.config.max_holding_hours,
+        )
         self.sector_correlation_engine = SectorCorrelationEngine(
             max_sector_positions=self.config.max_sector_positions,
             correlation_limit=self.config.correlation_limit,
@@ -706,6 +715,23 @@ class RobotEngine:
 
         return self.market_regime_engine.analyze(market_frame).to_dict()
 
+    def get_adaptive_strategy_policy(self, market_frame=None) -> dict[str, Any]:
+        regime = self.get_market_regime_result(market_frame)
+        if not getattr(self.config, "adaptive_strategy_enabled", True):
+            return {
+                "profile": "DISABLED",
+                "allow_new_positions": True,
+                "minimum_entry_score": float(self.config.minimum_score),
+                "position_size_multiplier": 1.0,
+                "target1_multiplier": 1.0,
+                "target2_multiplier": 1.0,
+                "trailing_atr_multiplier": float(self.config.atr_trailing_multiplier),
+                "smart_exit_score_delta": 0,
+                "max_holding_hours_multiplier": 1.0,
+                "reasons": ["Adaptive Strategy kapalı."],
+            }
+        return self.adaptive_strategy_engine.build_policy(regime).to_dict()
+
     def market_regime_lock_reason(self, market_frame=None) -> str:
         result = self.get_market_regime_result(market_frame)
         if not result.get("allow_new_positions", True):
@@ -903,6 +929,25 @@ class RobotEngine:
             return {"ok": False, "message": market_regime_lock,
                     "market_regime": self.get_market_regime_result(market_frame)}
 
+        adaptive_policy = self.get_adaptive_strategy_policy(market_frame)
+        if not adaptive_policy.get("allow_new_positions", True):
+            return {
+                "ok": False,
+                "message": f"Adaptive Strategy yeni işlemi kilitledi: {adaptive_policy.get('profile')}",
+                "adaptive_strategy": adaptive_policy,
+            }
+        adaptive_minimum_score = float(adaptive_policy.get("minimum_entry_score", self.config.minimum_score))
+        if float(score) < adaptive_minimum_score:
+            return {
+                "ok": False,
+                "message": f"Adaptive giriş eşiği karşılanmadı: {float(score):.2f} < {adaptive_minimum_score:.2f}",
+                "adaptive_strategy": adaptive_policy,
+            }
+        target1, target2 = self.adaptive_strategy_engine.adjust_targets(
+            price, target1, target2,
+            self.adaptive_strategy_engine.build_policy(self.get_market_regime_result(market_frame)),
+        )
+
         state = self.get_state()
         market = self.market
 
@@ -956,6 +1001,13 @@ class RobotEngine:
             quantity,
             market_frame,
         )
+        quantity *= float(adaptive_policy.get("position_size_multiplier", 1.0) or 0.0)
+        if quantity <= 0:
+            return {
+                "ok": False,
+                "message": "Adaptive Strategy pozisyon miktarını sıfıra indirdi.",
+                "adaptive_strategy": adaptive_policy,
+            }
 
         risk_enforcement = None
         if self.config.robot_risk_enforcement_enabled:
