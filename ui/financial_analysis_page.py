@@ -7,6 +7,8 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
+from engine.fundamental_quality import build_financial_quality_report, metrics_frame
+
 
 def _number(value: Any, suffix: str = "") -> str:
     try:
@@ -78,6 +80,50 @@ def render_financial_analysis() -> None:
 
     company = info.get("longName") or info.get("shortName") or symbol
     st.subheader(company)
+
+    quality = build_financial_quality_report(
+        symbol=symbol,
+        company_name=company,
+        info=info,
+        income_statement=income,
+        balance_sheet=balance,
+        cashflow=cashflow,
+    )
+
+    st.markdown("### 🧠 Finansal Kalite Motoru — Sprint 10.21A")
+    q1, q2, q3 = st.columns(3)
+    q1.metric("Finansal Kalite", f"{quality.overall_score:.1f}/100" if quality.overall_score is not None else "—")
+    q2.metric("Genel Not", quality.grade)
+    q3.metric("Veri Kapsamı", f"%{quality.coverage_pct:.1f}")
+    st.info(quality.summary)
+
+    category_columns = st.columns(len(quality.categories))
+    for column, category in zip(category_columns, quality.categories):
+        value = f"{category.score:.1f}" if category.score is not None else "—"
+        column.metric(category.label, value, help=f"{category.available_metrics}/{category.total_metrics} ölçüt mevcut")
+
+    pos_col, caution_col = st.columns(2)
+    with pos_col:
+        st.markdown("#### Güçlü Alanlar")
+        if quality.positives:
+            for item in quality.positives:
+                st.success(item)
+        else:
+            st.info("Yeterli güçlü gösterge belirlenemedi.")
+    with caution_col:
+        st.markdown("#### Dikkat Gerektiren Alanlar")
+        if quality.cautions:
+            for item in quality.cautions:
+                st.warning(item)
+        else:
+            st.info("Belirgin zayıf gösterge belirlenemedi.")
+
+    with st.expander("Finansal puanın ayrıntılı hesabı", expanded=False):
+        st.dataframe(metrics_frame(quality), width="stretch", hide_index=True)
+        st.caption(
+            "Eksik veriler sıfır puan sayılmaz. Puan yalnızca mevcut ölçütlerden hesaplanır; "
+            "veri kapsamı ayrıca gösterilir. Değerleme oranları sektör karşılaştırması olmadan tek başına karar ölçütü değildir."
+        )
 
     metrics = [
         ("Fiyat", _number(info.get("currentPrice"), "TL")),
