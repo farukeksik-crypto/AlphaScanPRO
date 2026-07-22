@@ -75,3 +75,49 @@ def render_universe_manager(manager: UniverseManager) -> None:
         st.dataframe(pd.DataFrame(changes), width="stretch", hide_index=True)
     else:
         st.info("Henüz evren değişikliği kaydı bulunmuyor.")
+
+
+def _render_universe_performance_center() -> None:
+    from config.settings import DATABASE_FILE
+    from database.db import Database
+    from engine.universe_performance import UniversePerformanceAnalytics
+
+    st.divider()
+    st.subheader("📊 Evren Performans Merkezi — Sprint 10.19B")
+    st.caption(
+        "Background Worker taramaları ile sanal robot işlemlerini evren bazında karşılaştırır. "
+        "Bu panel robot kurallarını değiştirmez."
+    )
+    days = st.selectbox("Rapor dönemi", [7, 30, 90], index=1, format_func=lambda value: f"Son {value} gün")
+    analytics = UniversePerformanceAnalytics(Database(DATABASE_FILE))
+    summary = analytics.summary(days)
+    rows = analytics.rows(days)
+
+    columns = st.columns(5)
+    columns[0].metric("Evren", summary["universe_count"])
+    columns[1].metric("Taranan", summary["scanned"])
+    columns[2].metric("Robot Aksiyonu", summary["robot_actions"])
+    columns[3].metric("Açık Pozisyon", summary["open_positions"])
+    columns[4].metric("Kapanan İşlem", summary["closed_trades"])
+
+    if not rows:
+        st.info("Seçilen dönemde evren performans verisi bulunmuyor.")
+        return
+
+    frame = pd.DataFrame([row.to_dict() for row in rows]).rename(columns={
+        "market": "Piyasa", "universe": "Evren", "scan_runs": "Tarama",
+        "scanned": "Taranan", "failures": "Veri Hatası", "robot_actions": "Robot Aksiyonu",
+        "open_positions": "Açık Pozisyon", "closed_trades": "Kapanan İşlem",
+        "winning_trades": "Kazanan", "net_profit": "Net K/Z",
+        "win_rate": "Başarı %", "average_profit_pct": "Ort. K/Z %",
+    })
+    st.dataframe(frame, width="stretch", hide_index=True)
+    st.bar_chart(frame.set_index("Evren")[["Taranan", "Robot Aksiyonu", "Kapanan İşlem"]])
+
+
+_original_render_universe_manager = render_universe_manager
+
+
+def render_universe_manager(manager: UniverseManager) -> None:
+    _original_render_universe_manager(manager)
+    _render_universe_performance_center()
