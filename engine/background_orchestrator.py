@@ -312,14 +312,50 @@ class BackgroundOrchestrator:
             return {"ok": False, "error": str(exc)}
 
     def run_bist(self) -> dict[str, Any]:
-        items = self.watchlists.get(self.settings.bist_universe, [])
-        if not items and self.settings.bist_universe == "arindirma_0":
-            items = self.watchlists.get("arindirma_0", [])
-        return self._execute(
-            "BIST", self.settings.bist_universe,
-            lambda: scan_yahoo_items(self.data_engine, items, workers=4),
-            self.settings.bist.robot_enabled,
-        )
+        configured = list(getattr(self.settings, "bist_universes", []) or [])
+        if not configured:
+            configured = [self.settings.bist_universe]
+
+        # Aynı evrenin farklı yazımlarla iki kez taranmasını engeller.
+        unique_universes: list[str] = []
+        seen: set[str] = set()
+        for universe in configured:
+            key = str(universe).strip()
+            normalized = key.casefold().replace("ı", "i")
+            if key and normalized not in seen:
+                seen.add(normalized)
+                unique_universes.append(key)
+
+        results: list[dict[str, Any]] = []
+        for universe in unique_universes:
+            items = self.watchlists.get(universe, [])
+            if not items and universe in {"Arındırma 0", "Arindirma 0"}:
+                items = self.watchlists.get("arindirma_0", [])
+            if not items and universe in {"Katılım Tüm", "Katilim Tum"}:
+                items = self.watchlists.get("katilim_tum", [])
+            if not items:
+                self.logger.warning("BIST/%s evreni boş; tarama atlandı.", universe)
+                results.append({"ok": False, "universe": universe, "error": "Evren boş"})
+                continue
+            results.append(
+                self._execute(
+                    "BIST", universe,
+                    lambda selected=items: scan_yahoo_items(self.data_engine, selected, workers=4),
+                    self.settings.bist.robot_enabled,
+                )
+            )
+
+        return {
+            "ok": bool(results) and all(item.get("ok", False) for item in results),
+            "universes": results,
+            "rows": sum(int(item.get("rows", 0) or 0) for item in results),
+            "failures": sum(int(item.get("failures", 0) or 0) for item in results),
+            "actions": [
+                action
+                for item in results
+                for action in item.get("actions", [])
+            ],
+        }
 
     def run_crypto(self) -> dict[str, Any]:
         pairs = get_crypto_pairs(self.settings.crypto_group)

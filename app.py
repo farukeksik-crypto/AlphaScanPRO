@@ -10,6 +10,7 @@ from database.robot_migrations import migrate_database_object
 from engine.cache_engine import CacheEngine
 from engine.data_engine import DataEngine
 from engine.diagnostics import run_diagnostics
+from engine.universe_manager import UniverseManager
 from ui.ai_learning_page import render_ai_learning
 from ui.backtest_page import render_backtest
 from ui.background_page import render_background_status
@@ -26,6 +27,7 @@ from ui.robot_page import render_robot
 from ui.robot_intelligence_page import render_robot_intelligence
 from ui.robot_replay_page import render_robot_replay
 from ui.strategy_lab_page import render_strategy_lab
+from ui.universe_manager_page import render_universe_manager
 from ui.glossary import render_page_glossary
 from ui.scanner_pages import (
     render_bist,
@@ -48,7 +50,11 @@ data_engine = DataEngine(cache_engine)
 database = Database(DATABASE_FILE)
 ensure_background_schema(database)
 migrate_database_object(database)
+universe_manager = UniverseManager()
 watchlists = load_watchlists()
+watchlists["arindirma_0"] = universe_manager.get_items("arindirma_0")
+watchlists["Katılım Tüm"] = universe_manager.get_items("katilim_tum")
+watchlists["katilim_tum"] = watchlists["Katılım Tüm"]
 
 
 st.sidebar.title("📈 AlphaScan PRO")
@@ -60,6 +66,7 @@ page = st.sidebar.radio(
         "Arındırma 0",
         "Katılım Tüm",
         "Katılım 100",
+        "Evren Yöneticisi",
         "Göreceli Güç",
         "Paranın Yönü",
         "Kripto",
@@ -92,6 +99,9 @@ elif page == "Katılım Tüm":
 
 elif page == "Katılım 100":
     render_katilim_100(data_engine, get_bist_universe("Katılım 100"))
+
+elif page == "Evren Yöneticisi":
+    render_universe_manager(universe_manager)
 
 elif page == "Göreceli Güç":
     render_relative_strength(data_engine, watchlists)

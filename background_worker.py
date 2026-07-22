@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+import os
 import signal
 import sys
 import time
@@ -16,6 +17,7 @@ from engine.cache_engine import CacheEngine
 from engine.data_engine import DataEngine
 from engine.market_scheduler import JobClock, bist_market_open, zoned_now
 from engine.notification_manager import NotificationManager
+from engine.universe_manager import UniverseManager
 
 STOP_REQUESTED = False
 
@@ -71,12 +73,19 @@ def main() -> int:
     signal.signal(signal.SIGTERM, _stop)
     logger = _logger()
     lock_handle = _acquire_lock()
+    pid_path = RUNTIME_DIR / "background_worker.pid"
+    pid_path.write_text(str(os.getpid()), encoding="utf-8")
     settings = load_background_settings()
 
     database = Database(DATABASE_FILE)
     ensure_background_schema(database)
     data_engine = DataEngine(CacheEngine(CACHE_DIR))
-    orchestrator = BackgroundOrchestrator(database, data_engine, load_watchlists(), settings, logger)
+    universe_manager = UniverseManager()
+    watchlists = load_watchlists()
+    watchlists["arindirma_0"] = universe_manager.get_items("arindirma_0")
+    watchlists["Katılım Tüm"] = universe_manager.get_items("katilim_tum")
+    watchlists["katilim_tum"] = watchlists["Katılım Tüm"]
+    orchestrator = BackgroundOrchestrator(database, data_engine, watchlists, settings, logger)
     notifier = NotificationManager(database, settings, logger)
 
     clocks = {"bist": JobClock(), "crypto": JobClock(), "commodity": JobClock()}
@@ -111,6 +120,7 @@ def main() -> int:
         logger.info("AlphaScan Background Worker durdu.")
         try:
             (RUNTIME_DIR / "background_worker.heartbeat").unlink(missing_ok=True)
+            pid_path.unlink(missing_ok=True)
         except OSError:
             pass
         lock_handle.close()

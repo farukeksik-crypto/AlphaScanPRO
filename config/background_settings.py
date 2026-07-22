@@ -64,6 +64,10 @@ class BackgroundSettings:
     )
 
     bist_universe: str = "arindirma_0"
+    # Birden fazla BIST evrenini aynı seans döngüsünde tarar.
+    bist_universes: list[str] = field(
+        default_factory=lambda: ["arindirma_0", "Katılım Tüm"]
+    )
     crypto_group: str = "Hepsi"
 
     commodities: dict[str, str] = field(
@@ -154,6 +158,14 @@ def load_background_settings(
                 defaults.bist_universe,
             )
         ),
+        bist_universes=[
+            str(item)
+            for item in raw.get(
+                "bist_universes",
+                [raw.get("bist_universe", defaults.bist_universe)],
+            )
+            if str(item).strip()
+        ],
         crypto_group=str(
             raw.get(
                 "crypto_group",
@@ -213,6 +225,7 @@ def save_background_settings(
         "crypto": vars(settings.crypto),
         "commodity": vars(settings.commodity),
         "bist_universe": settings.bist_universe,
+        "bist_universes": settings.bist_universes,
         "crypto_group": settings.crypto_group,
         "commodities": settings.commodities,
         "bist_market_start": settings.bist_market_start,
