@@ -6,6 +6,7 @@ import plotly.express as px
 import streamlit as st
 
 from engine.robot_intelligence import build_robot_intelligence_snapshot
+from engine.robot_learning import build_robot_learning_report
 
 
 def _fmt(value: float) -> str:
@@ -46,7 +47,7 @@ def render_robot_intelligence(database) -> None:
             elif alert["level"] == "WARN": st.warning(text)
             else: st.info(text)
 
-    tabs = st.tabs(["Açık Pozisyonlar", "Son İşlemler", "Sembol Zekâsı", "Çıkış Zekâsı", "Yönetim Kullanımı"])
+    tabs = st.tabs(["Açık Pozisyonlar", "Son İşlemler", "Sembol Zekâsı", "Çıkış Zekâsı", "Robot Öğrenme", "Yönetim Kullanımı"])
     with tabs[0]:
         frame = pd.DataFrame(snapshot.open_positions)
         st.dataframe(frame, use_container_width=True, hide_index=True) if not frame.empty else st.info("Açık pozisyon yok.")
@@ -67,6 +68,25 @@ def render_robot_intelligence(database) -> None:
             st.plotly_chart(px.bar(frame, x="exit_action", y="net_pnl", title="Çıkış Kararı Bazlı Net PnL"), use_container_width=True)
             st.dataframe(frame, use_container_width=True, hide_index=True)
     with tabs[4]:
+        with database.connect() as connection:
+            learning = build_robot_learning_report(connection, lookback_days=int(lookback), minimum_sample=20)
+        l1, l2, l3 = st.columns(3)
+        l1.metric("Kapalı İşlem", learning.trade_count)
+        l2.metric("Güven Eşiği", learning.minimum_sample)
+        l3.metric("Öğrenme Durumu", "HAZIR" if learning.data_ready else "VERİ BİRİKİYOR")
+        for recommendation in learning.recommendations:
+            message = f"{recommendation.title} — {recommendation.evidence} Öneri: {recommendation.proposed_action}"
+            if recommendation.priority == "UYARI": st.warning(message)
+            elif recommendation.priority == "FIRSAT": st.success(message)
+            else: st.info(message)
+        learning_frame = pd.DataFrame([item.to_dict() for item in learning.segments])
+        if learning_frame.empty:
+            st.info("Öğrenme analizi için kapanmış işlem yok.")
+        else:
+            st.caption("Robot hiçbir ayarı otomatik değiştirmez; yalnızca kanıta dayalı öneri üretir.")
+            st.dataframe(learning_frame, use_container_width=True, hide_index=True)
+
+    with tabs[5]:
         u1, u2, u3, u4 = st.columns(4)
         u1.metric("Ortalama Bekleme", f"{snapshot.average_holding_minutes:.1f} dk")
         u2.metric("Break-even Kullanımı", f"%{snapshot.break_even_usage_pct:.1f}")
