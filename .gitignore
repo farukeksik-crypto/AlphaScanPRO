@@ -1,38 +1,37 @@
-# Python tarafından üretilen dosyalar
+﻿# Python önbellekleri
 __pycache__/
 *.py[cod]
-
-# AlphaScan veri önbelleği
-cache/
-*.pkl
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Sanal ortamlar
 .venv/
 venv/
 env/
 
-# Editör ayarları
+# Çalışan veritabanları
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+
+# Log ve geçici dosyalar
+*.log
+*.tmp
+*.temp
+
+# Yedek ve arşivler
+*.bak
+*.bak_*
+*.zip
+
+# Editör dosyaları
 .vscode/
 .idea/
 
-# Sistem ve geçici dosyalar
+# şletim sistemi dosyaları
 .DS_Store
 Thumbs.db
-*.log
-# AlphaScan generated files
-cache/
-logs/
-runtime/
-backups/
-backup_*/
-.pytest_cache/
-__pycache__/
-*.pyc
-*.pyo
-*.db-journal
-*.db-wal
-*.db-shm
-
-# Sprint paketleri ve yerel geri dönüş yedekleri
-.sprint_backups/
-payload/
