@@ -18,12 +18,35 @@ BACKGROUND_LOG_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_COMMODITIES = {
     "Altın": "GC=F",
     "Gümüş": "SI=F",
-    "WTI Petrol": "CL=F",
-    "Brent Petrol": "BZ=F",
-    "Bakır": "HG=F",
-    "Doğalgaz": "NG=F",
     "Platin": "PL=F",
     "Paladyum": "PA=F",
+    "Bakır": "HG=F",
+
+    "WTI Petrol": "CL=F",
+    "Brent Petrol": "BZ=F",
+    "Doğalgaz": "NG=F",
+    "Kalorifer Yakıtı": "HO=F",
+    "RBOB Benzin": "RB=F",
+
+    "Mısır": "ZC=F",
+    "Buğday": "ZW=F",
+    "Soya Fasulyesi": "ZS=F",
+    "Soya Küspesi": "ZM=F",
+    "Soya Yağı": "ZL=F",
+    "Pirinç": "ZR=F",
+
+    "Kahve": "KC=F",
+    "Şeker": "SB=F",
+    "Pamuk": "CT=F",
+    "Kakao": "CC=F",
+    "Portakal Suyu": "OJ=F",
+
+    "Canlı Sığır": "LE=F",
+    "Yağsız Domuz": "HE=F",
+    "Besi Sığırı": "GF=F",
+
+    "Kereste": "LBS=F",
+    "Yulaf": "ZO=F",
 }
 
 
@@ -172,12 +195,10 @@ def load_background_settings(
                 defaults.crypto_group,
             )
         ),
-        commodities=dict(
-            raw.get(
-                "commodities",
-                defaults.commodities,
-            )
-        ),
+        commodities={
+            **defaults.commodities,
+            **dict(raw.get("commodities", {})),
+        },
         bist_market_start=str(
             raw.get(
                 "bist_market_start",
@@ -240,7 +261,7 @@ def save_background_settings(
         exist_ok=True,
     )
 
-    with path.open("w", encoding="utf-8") as handle:
+    with path.open("r", encoding="utf-8-sig") as handle:
         json.dump(
             payload,
             handle,

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from database.background_repository import latest_scan_results
 
 from io import BytesIO
 
@@ -6,11 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from engine.analysis_engine import analyze_signal_payload
-from engine.scanner import (
-    scan_commodities,
-    scan_crypto,
-    scan_yahoo_items,
-)
+from engine.scanner import scan_yahoo_items
 
 
 def _style_decision(value: str) -> str:
@@ -624,91 +621,37 @@ def _prepare_simple_market_frame(rows: list[dict]) -> pd.DataFrame:
     return frame
 
 
-def render_crypto(data_engine):
+def render_crypto(data_engine, database):
+    """SQLite'taki son başarılı kripto arka plan taramasını gösterir."""
     st.title("₿ Kripto Tarama")
 
-    pairs = {
-        "BTC": "BTC/USDT",
-        "ETH": "ETH/USDT",
-        "BNB": "BNB/USDT",
-        "XRP": "XRP/USDT",
-        "SOL": "SOL/USDT",
-        "TRX": "TRX/USDT",
-        "DOGE": "DOGE/USDT",
-        "ADA": "ADA/USDT",
-        "LINK": "LINK/USDT",
-        "AVAX": "AVAX/USDT",
-        "DOT": "DOT/USDT",
-        "LTC": "LTC/USDT",
-        "BCH": "BCH/USDT",
-        "XLM": "XLM/USDT",
-        "SUI": "SUI/USDT",
-        "TON": "TON/USDT",
-        "HBAR": "HBAR/USDT",
-        "SHIB": "SHIB/USDT",
-        "UNI": "UNI/USDT",
-        "AAVE": "AAVE/USDT",
-        "NEAR": "NEAR/USDT",
-        "ATOM": "ATOM/USDT",
-        "FIL": "FIL/USDT",
-        "ETC": "ETC/USDT",
-        "ARB": "ARB/USDT",
-        "OP": "OP/USDT",
-        "APT": "APT/USDT",
-        "INJ": "INJ/USDT",
-        "RENDER": "RENDER/USDT",
-        "FET": "FET/USDT",
-    }
+    rows = latest_scan_results(
+        database,
+        market="KRIPTO",
+    )
 
-    if st.button("Kripto Taramasını Başlat", type="primary"):
-        with st.spinner(f"{len(pairs)} coin taranıyor..."):
-            rows, failures = scan_crypto(data_engine, pairs)
+    if not rows:
+        st.info("Henüz kripto arka plan taraması bulunamadı.")
+        return
 
-        st.session_state["s2_crypto_results"] = rows
-        st.session_state["s2_crypto_failures"] = failures
-
-    rows = st.session_state.get("s2_crypto_results", [])
-    failures = st.session_state.get("s2_crypto_failures", [])
-
-    if rows:
-        frame = _prepare_simple_market_frame(rows)
-        _render_pro_table(frame)
-    else:
-        st.info("Henüz kripto taraması yapılmadı.")
-
-    if failures:
-        st.warning(f"{len(failures)} coin taranamadı.")
-        st.dataframe(pd.DataFrame(failures), width="stretch", hide_index=True)
+    frame = _prepare_simple_market_frame(rows)
+    st.caption(f"Arka plan veritabanından yüklenen sonuç: {len(frame)} kripto")
+    _render_pro_table(frame)
 
 
-def render_commodity(data_engine):
+def render_commodity(data_engine, database):
+    """SQLite'taki son başarılı emtia arka plan taramasını gösterir."""
     st.title("🥇 Emtia Tarama")
 
-    symbols = {
-        "Altın": "GC=F",
-        "Gümüş": "SI=F",
-        "WTI Petrol": "CL=F",
-        "Brent Petrol": "BZ=F",
-        "Bakır": "HG=F",
-        "Doğalgaz": "NG=F",
-    }
+    rows = latest_scan_results(
+        database,
+        market="EMTIA",
+    )
 
-    if st.button("Emtia Taramasını Başlat", type="primary"):
-        with st.spinner(f"{len(symbols)} emtia taranıyor..."):
-            rows, failures = scan_commodities(data_engine, symbols)
+    if not rows:
+        st.info("Henüz emtia arka plan taraması bulunamadı.")
+        return
 
-        st.session_state["s2_commodity_results"] = rows
-        st.session_state["s2_commodity_failures"] = failures
-
-    rows = st.session_state.get("s2_commodity_results", [])
-    failures = st.session_state.get("s2_commodity_failures", [])
-
-    if rows:
-        frame = _prepare_simple_market_frame(rows)
-        _render_pro_table(frame)
-    else:
-        st.info("Henüz emtia taraması yapılmadı.")
-
-    if failures:
-        st.warning(f"{len(failures)} emtia taranamadı.")
-        st.dataframe(pd.DataFrame(failures), width="stretch", hide_index=True)
+    frame = _prepare_simple_market_frame(rows)
+    st.caption(f"Arka plan veritabanından yüklenen sonuç: {len(frame)} emtia")
+    _render_pro_table(frame)

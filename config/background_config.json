@@ -8,26 +8,17 @@
   },
   "crypto": {
     "enabled": true,
-    "interval_minutes": 1,
+    "interval_minutes": 5,
     "robot_enabled": true
   },
   "commodity": {
     "enabled": true,
-    "interval_minutes": 30,
+    "interval_minutes": 60,
     "robot_enabled": true
   },
   "bist_universe": "arindirma_0",
   "crypto_group": "Hepsi",
-  "commodities": {
-    "Altın": "GC=F",
-    "Gümüş": "SI=F",
-    "WTI Petrol": "CL=F",
-    "Brent Petrol": "BZ=F",
-    "Bakır": "HG=F",
-    "Doğalgaz": "NG=F",
-    "Platin": "PL=F",
-    "Paladyum": "PA=F"
-  },
+  "commodities": {},
   "bist_market_start": "09:45",
   "bist_market_end": "18:15",
   "max_saved_rows_per_run": 500,

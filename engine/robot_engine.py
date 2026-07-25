@@ -19,6 +19,10 @@ import pandas as pd
 from engine.trade_intelligence import analyze_closed_trade
 from engine.portfolio_risk_manager import PortfolioRiskConfig
 from engine.robot_risk_enforcement import RobotRiskEnforcer
+from engine.position_lifecycle import (
+    PositionLifecycleRepository,
+    SafePositionLifecycle,
+)
 
 
 @dataclass
@@ -161,7 +165,25 @@ class RobotEngine:
                 allow_position_reduction=True,
             ),
         )
-
+        self.position_lifecycle = SafePositionLifecycle(
+            PositionLifecycleRepository(self.database),
+        )
+    def _record_event(
+        self,
+        event_type: str,
+        symbol: str,
+        position_id: int | str,
+        **extra,
+    ) -> None:
+        self.position_lifecycle.record(
+            position_id=str(position_id),
+            symbol=symbol,
+            event_type=event_type,
+            market=self.market,
+            universe=getattr(self.config, "universe", None),
+            account_id=self.account_id,
+            **extra,
+        )
     @staticmethod
     def _now() -> str:
         return datetime.now().isoformat(timespec="seconds")
@@ -208,12 +230,33 @@ class RobotEngine:
             connection.execute(
                 """
                 UPDATE robot_accounts
-                SET enabled = ?, updated_at = ?
+                SET balance = balance + ?,
+                    updated_at = ?
                 WHERE account_id = ?
                 """,
                 (int(enabled), self._now(), self.account_id),
             )
             connection.commit()
+            self.position_lifecycle.record(
+                position_id=str(position_id),
+                symbol=symbol,
+                event_type="POSITION_OPENED",
+                market=market,
+                universe=universe,
+                account_id=self.account_id,
+                entry_price=price,
+                price=price,
+                stop_price=stop_price,
+                target_price=target1,
+                quantity=quantity,
+                technical_score=score,
+                confidence_score=confidence,
+                message="Sanal pozisyon açıldı.",
+                metadata={
+                    "decision": decision,
+                    "strategy_profile": profile,
+                },
+)
 
     def reset_account(self) -> None:
         with self.database.connect() as connection:
@@ -238,6 +281,26 @@ class RobotEngine:
                 (self._now(), self.account_id),
             )
             connection.commit()
+            self.position_lifecycle.record(
+                position_id=str(position_id),
+                symbol=symbol,
+                event_type="POSITION_OPENED",
+                market=market,
+                universe=universe,
+                account_id=self.account_id,
+                entry_price=price,
+                price=price,
+                stop_price=stop_price,
+                target_price=target1,
+                quantity=quantity,
+                technical_score=score,
+                confidence_score=confidence,
+                message="Sanal pozisyon açıldı.",
+                metadata={
+                  "decision": decision,
+                  "strategy_profile": profile,
+                },
+)
 
     def get_open_positions(self) -> pd.DataFrame:
         query = """
@@ -1230,6 +1293,29 @@ class RobotEngine:
 
             connection.commit()
 
+        self.position_lifecycle.record(
+           position_id=str(position_id),
+           symbol=symbol,
+           event_type="POSITION_CLOSED",
+           market=market,
+           universe=universe,
+           account_id=self.account_id,
+           entry_price=entry_price,
+           price=exit_price,
+           quantity=quantity,
+           profit=profit,
+           profit_pct=analytics.profit_pct,
+           technical_score=technical_score,
+           confidence_score=confidence_score,
+           reason=exit_reason,
+           message="Sanal pozisyon kapatıldı.",
+           metadata={
+               "trade_grade": analytics.trade_grade,
+               "trade_quality_score": analytics.trade_quality_score,
+               "holding_minutes": analytics.holding_minutes,
+               "risk_reward": analytics.risk_reward,
+           },
+)
         portfolio_summary = self.get_portfolio_risk_summary()
 
         return {
@@ -1621,10 +1707,11 @@ class RobotEngine:
 
                     connection.execute(
                         """
-                        UPDATE accounts
-                        SET cash_balance = cash_balance + ?,
+                       
+                        UPDATE robot_accounts
+                        SET balance = balance + ?,
                             updated_at = ?
-                        WHERE id = ?
+                        WHERE account_id = ?
                         """,
                         (
                             net_value,
@@ -1632,7 +1719,7 @@ class RobotEngine:
                             self.account_id,
                         ),
                     )
-
+                       
                     connection.execute(
                         """
                         INSERT INTO system_events (
@@ -1697,6 +1784,7 @@ class RobotEngine:
                 ):
                     connection.execute(
                         """
+                                            
                         UPDATE positions
                         SET stop_price = ?,
                             break_even_active = 1
@@ -1712,6 +1800,29 @@ class RobotEngine:
                     )
                     connection.execute(
                         """
+                        previous_stop = stop_price
+
+                        self.position_lifecycle.record(
+                            position_id=str(position_id),
+                            symbol=symbol,
+                            event_type="BREAK_EVEN_ACTIVATED",
+                            market=self.market,
+                            universe=getattr(self.config, "universe", None),
+                            account_id=self.account_id,
+                            price=current_price,
+                            entry_price=entry_price,
+                            stop_price=break_even_stop,
+                            previous_stop_price=previous_stop,
+                            quantity=quantity,
+                            technical_score=float(position.get("technical_score", 0) or 0),
+                            confidence_score=float(position.get("confidence_score", 0) or 0),
+                            reason="BREAK EVEN",
+                            message="Break-even stop aktif edildi.",
+                            metadata={
+                                "trigger_price": trigger_price,
+                                "buffer_pct": effective_break_even_buffer_pct,
+                            },
+                        )
                         INSERT INTO system_events (
                             created_at,
                             event_type,
@@ -1782,6 +1893,32 @@ class RobotEngine:
                             position_id,
                             self.account_id,
                         ),
+                    )
+                    previous_stop = stop_price
+
+                    self.position_lifecycle.record(
+                        position_id=str(position_id),
+                        symbol=symbol,
+                        event_type="ATR_TRAILING_UPDATED",
+                        market=self.market,
+                        universe=getattr(self.config, "universe", None),
+                        account_id=self.account_id,
+                        price=current_price,
+                        entry_price=entry_price,
+                        stop_price=trailing_stop,
+                        previous_stop_price=previous_stop,
+                        quantity=quantity,
+                        technical_score=float(position.get("technical_score", 0) or 0),
+                        confidence_score=float(position.get("confidence_score", 0) or 0),
+                        reason="TRAILING STOP UPDATED",
+                        message="Trailing stop kâr yönünde güncellendi.",
+                        metadata={
+                            "trailing_mode": trailing_mode,
+                            "highest_price": highest_price,
+                            "atr_value": atr_value,
+                            "trailing_distance": trailing_distance,
+                            "atr_multiplier": self.config.atr_trailing_multiplier,
+                        },
                     )
                     connection.execute(
                         """
@@ -1932,10 +2069,10 @@ class RobotEngine:
                             )
                             connection.execute(
                                 """
-                                UPDATE accounts
-                                SET cash_balance = cash_balance + ?,
+                                UPDATE robot_accounts
+                                SET balance = balance + ?,
                                     updated_at = ?
-                                WHERE id = ?
+                                WHERE account_id = ?
                                 """,
                                 (
                                     net_value,
@@ -1974,6 +2111,31 @@ class RobotEngine:
                             )
                             connection.commit()
 
+                        self._record_event(
+                            "SMART_EXIT_PARTIAL",
+                            symbol,
+                            position_id,
+                            price=current_price,
+                            entry_price=entry_price,
+                            quantity=sell_quantity,
+                            profit=realized_pnl,
+                            profit_pct=smart_exit.profit_pct,
+                            technical_score=float(
+                                position.get("technical_score", 0) or 0
+                            ),
+                            confidence_score=float(
+                                position.get("confidence_score", 0) or 0
+                            ),
+                            reason=reason_text,
+                            message="Akıllı çıkış sistemi kısmi satış yaptı.",
+                            metadata={
+                                "sold_quantity": sell_quantity,
+                                "remaining_quantity": remaining_quantity,
+                                "commission": commission,
+                                "smart_exit_score": smart_exit.score,
+                                "confirmations": smart_exit.confirmations,
+                            },
+                        )
                         actions.append(
                             {
                                 "action": "SMART_EXIT_PARTIAL",
@@ -2020,6 +2182,28 @@ class RobotEngine:
                                 ),
                             )
                             connection.commit()
+
+                        self._record_event(
+                            "SMART_EXIT_FULL",
+                            symbol,
+                            position_id,
+                            price=current_price,
+                            entry_price=entry_price,
+                            quantity=quantity,
+                            profit_pct=smart_exit.profit_pct,
+                            technical_score=float(
+                                position.get("technical_score", 0) or 0
+                            ),
+                            confidence_score=float(
+                                position.get("confidence_score", 0) or 0
+                            ),
+                            reason=reason_text,
+                            message="Akıllı çıkış sistemi pozisyonu tamamen kapattı.",
+                            metadata={
+                                "smart_exit_score": smart_exit.score,
+                                "confirmations": smart_exit.confirmations,
+                            },
+                        )
 
                         actions.append(
                             self.close_position(

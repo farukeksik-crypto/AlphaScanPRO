@@ -41,6 +41,26 @@ class TradeRecord:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class ClosedTradeAnalytics:
+    """RobotEngine tarafından trade_history tablosuna yazılan kapanış metrikleri."""
+
+    profit_pct: float
+    holding_minutes: float
+    mfe_pct: float
+    mae_pct: float
+    risk_pct: float
+    reward_pct: float
+    risk_reward: float
+    entry_efficiency: float
+    exit_efficiency: float
+    trade_quality_score: float
+    trade_grade: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 class TradeIntelligenceLogger:
     def __init__(self, storage_path: str | Path) -> None:
         self.storage_path = Path(storage_path)
@@ -208,8 +228,8 @@ class TradeIntelligenceLogger:
 
     @staticmethod
     def calculate_duration_minutes(entry_time: str, exit_time: str) -> float:
-        start = datetime.fromisoformat(entry_time.replace("Z", "+00:00"))
-        end = datetime.fromisoformat(exit_time.replace("Z", "+00:00"))
+        start = _parse_datetime(entry_time)
+        end = _parse_datetime(exit_time)
         return max(0.0, (end - start).total_seconds() / 60.0)
 
     def _append_event(self, event_type: str, payload: dict[str, Any]) -> None:
@@ -231,10 +251,49 @@ class TradeIntelligenceLogger:
     def _now_iso() -> str:
         return datetime.now(timezone.utc).isoformat()
 
-def analyze_closed_trade(
-    trade: TradeRecord | dict[str, Any],
-) -> dict[str, Any]:
-    """Kapalı işlem kaydından standart analiz özeti üretir."""
+
+def _parse_datetime(value: str | datetime) -> datetime:
+    if isinstance(value, datetime):
+        result = value
+    else:
+        text = str(value).strip().replace("Z", "+00:00")
+        result = datetime.fromisoformat(text)
+
+    # Naive ve timezone-aware tarihlerin çıkarılmasında TypeError oluşmasını önle.
+    if result.tzinfo is None:
+        result = result.replace(tzinfo=timezone.utc)
+    return result.astimezone(timezone.utc)
+
+
+def _float_or_none(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clamp(value: float, minimum: float = 0.0, maximum: float = 100.0) -> float:
+    return max(minimum, min(maximum, float(value)))
+
+
+def _grade(score: float) -> str:
+    if score >= 90:
+        return "A+"
+    if score >= 80:
+        return "A"
+    if score >= 70:
+        return "B"
+    if score >= 60:
+        return "C"
+    if score >= 50:
+        return "D"
+    return "F"
+
+
+def _analyze_trade_record(trade: TradeRecord | dict[str, Any]) -> dict[str, Any]:
+    """Eski API: TradeRecord/dict alır ve standart özet sözlüğü döndürür."""
     if isinstance(trade, TradeRecord):
         data = trade.to_dict()
     else:
@@ -283,3 +342,173 @@ def analyze_closed_trade(
         "risk_score": data.get("risk_score"),
     }
 
+
+def _analyze_robot_close(
+    *,
+    entry_price: float,
+    exit_price: float,
+    quantity: float,
+    total_profit: float,
+    opened_at: str | datetime,
+    closed_at: str | datetime,
+    highest_price: float | None = None,
+    lowest_price: float | None = None,
+    stop_price: float | None = None,
+    target_price: float | None = None,
+    technical_score: float = 0.0,
+    confidence_score: float = 0.0,
+) -> ClosedTradeAnalytics:
+    """Yeni RobotEngine API'si için kapanış analizini üretir."""
+    entry = float(entry_price)
+    exit_value = float(exit_price)
+    qty = float(quantity)
+    profit = float(total_profit)
+
+    if entry <= 0:
+        raise ValueError("Giriş fiyatı sıfırdan büyük olmalı.")
+    if exit_value <= 0:
+        raise ValueError("Çıkış fiyatı sıfırdan büyük olmalı.")
+    if qty <= 0:
+        raise ValueError("Miktar sıfırdan büyük olmalı.")
+
+    position_value = entry * qty
+    profit_pct = (profit / position_value * 100.0) if position_value else 0.0
+
+    opened = _parse_datetime(opened_at)
+    closed = _parse_datetime(closed_at)
+    holding_minutes = max(0.0, (closed - opened).total_seconds() / 60.0)
+
+    high = _float_or_none(highest_price)
+    low = _float_or_none(lowest_price)
+    high = max(entry, exit_value, high if high is not None else entry)
+    low = min(entry, exit_value, low if low is not None else entry)
+
+    mfe_pct = max(0.0, ((high - entry) / entry) * 100.0)
+    mae_pct = max(0.0, ((entry - low) / entry) * 100.0)
+
+    stop = _float_or_none(stop_price)
+    target = _float_or_none(target_price)
+    risk_pct = (
+        max(0.0, ((entry - stop) / entry) * 100.0)
+        if stop is not None and stop > 0
+        else 0.0
+    )
+    reward_pct = (
+        max(0.0, ((target - entry) / entry) * 100.0)
+        if target is not None and target > 0
+        else 0.0
+    )
+    risk_reward = reward_pct / risk_pct if risk_pct > 0 else 0.0
+
+    price_range = high - low
+    entry_efficiency = (
+        _clamp(((high - entry) / price_range) * 100.0)
+        if price_range > 0
+        else 50.0
+    )
+    exit_efficiency = (
+        _clamp(((exit_value - entry) / (high - entry)) * 100.0)
+        if high > entry
+        else (100.0 if exit_value >= entry else 0.0)
+    )
+
+    technical_component = _clamp(technical_score)
+    confidence_component = _clamp(confidence_score)
+    outcome_component = _clamp(50.0 + profit_pct * 8.0)
+    excursion_component = _clamp(50.0 + (mfe_pct - mae_pct) * 5.0)
+    rr_component = _clamp(risk_reward * 25.0)
+
+    quality_score = _clamp(
+        outcome_component * 0.30
+        + exit_efficiency * 0.20
+        + entry_efficiency * 0.10
+        + technical_component * 0.15
+        + confidence_component * 0.15
+        + excursion_component * 0.05
+        + rr_component * 0.05
+    )
+
+    return ClosedTradeAnalytics(
+        profit_pct=round(profit_pct, 6),
+        holding_minutes=round(holding_minutes, 2),
+        mfe_pct=round(mfe_pct, 6),
+        mae_pct=round(mae_pct, 6),
+        risk_pct=round(risk_pct, 6),
+        reward_pct=round(reward_pct, 6),
+        risk_reward=round(risk_reward, 6),
+        entry_efficiency=round(entry_efficiency, 2),
+        exit_efficiency=round(exit_efficiency, 2),
+        trade_quality_score=round(quality_score, 2),
+        trade_grade=_grade(quality_score),
+    )
+
+
+def analyze_closed_trade(
+    trade: TradeRecord | dict[str, Any] | None = None,
+    *,
+    entry_price: float | None = None,
+    exit_price: float | None = None,
+    quantity: float | None = None,
+    total_profit: float | None = None,
+    opened_at: str | datetime | None = None,
+    closed_at: str | datetime | None = None,
+    highest_price: float | None = None,
+    lowest_price: float | None = None,
+    stop_price: float | None = None,
+    target_price: float | None = None,
+    technical_score: float = 0.0,
+    confidence_score: float = 0.0,
+) -> dict[str, Any] | ClosedTradeAnalytics:
+    """
+    Kapalı işlemi analiz eder.
+
+    Geriye uyumluluk:
+      - analyze_closed_trade(trade) -> dict
+      - analyze_closed_trade(entry_price=..., ...) -> ClosedTradeAnalytics
+    """
+    if trade is not None:
+        robot_arguments_supplied = any(
+            value is not None
+            for value in (
+                entry_price,
+                exit_price,
+                quantity,
+                total_profit,
+                opened_at,
+                closed_at,
+            )
+        )
+        if robot_arguments_supplied:
+            raise TypeError(
+                "trade ile yeni RobotEngine parametreleri aynı çağrıda kullanılamaz."
+            )
+        return _analyze_trade_record(trade)
+
+    required = {
+        "entry_price": entry_price,
+        "exit_price": exit_price,
+        "quantity": quantity,
+        "total_profit": total_profit,
+        "opened_at": opened_at,
+        "closed_at": closed_at,
+    }
+    missing = [name for name, value in required.items() if value is None]
+    if missing:
+        raise TypeError(
+            "Eksik analyze_closed_trade parametreleri: " + ", ".join(missing)
+        )
+
+    return _analyze_robot_close(
+        entry_price=float(entry_price),
+        exit_price=float(exit_price),
+        quantity=float(quantity),
+        total_profit=float(total_profit),
+        opened_at=opened_at,
+        closed_at=closed_at,
+        highest_price=highest_price,
+        lowest_price=lowest_price,
+        stop_price=stop_price,
+        target_price=target_price,
+        technical_score=float(technical_score or 0.0),
+        confidence_score=float(confidence_score or 0.0),
+    )

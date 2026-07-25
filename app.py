@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import streamlit as st
 
@@ -110,10 +110,10 @@ elif page == "Paranın Yönü":
     render_money_flow(database)
 
 elif page == "Kripto":
-    render_crypto(data_engine)
+    render_crypto(data_engine, database)
 
 elif page == "Emtia":
-    render_commodity(data_engine)
+    render_commodity(data_engine, database)
 
 elif page == "Gelişmiş Grafik":
     render_advanced_chart(data_engine, watchlists, database)
@@ -167,4 +167,5 @@ st.caption(
     "AlphaScan PRO v3.0 Sprint 1: SQLite tabanlı arka plan taraması, "
     "bağımsız sanal robot, çoklu hisse bilanço analizi ve Türkçe finansal tablolar."
 )
+
 
