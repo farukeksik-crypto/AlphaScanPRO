@@ -1,0 +1,652 @@
+{
+  "target_count": 100,
+  "existing_count": 30,
+  "new_count": 70,
+  "total_count": 100,
+  "new_assets": [
+    {
+      "code": "ICP",
+      "pair": "ICP/USDT",
+      "name": "ICP",
+      "group": "large",
+      "quote_volume_24h": 1807458.83,
+      "trade_count_24h": 8894,
+      "status": "TRADING"
+    },
+    {
+      "code": "ALGO",
+      "pair": "ALGO/USDT",
+      "name": "ALGO",
+      "group": "large",
+      "quote_volume_24h": 1264258.2,
+      "trade_count_24h": 7796,
+      "status": "TRADING"
+    },
+    {
+      "code": "VET",
+      "pair": "VET/USDT",
+      "name": "VET",
+      "group": "large",
+      "quote_volume_24h": 291790.3,
+      "trade_count_24h": 4894,
+      "status": "TRADING"
+    },
+    {
+      "code": "IMX",
+      "pair": "IMX/USDT",
+      "name": "IMX",
+      "group": "layer2",
+      "quote_volume_24h": 203423.5,
+      "trade_count_24h": 2141,
+      "status": "TRADING"
+    },
+    {
+      "code": "STX",
+      "pair": "STX/USDT",
+      "name": "STX",
+      "group": "large",
+      "quote_volume_24h": 320955.11,
+      "trade_count_24h": 3673,
+      "status": "TRADING"
+    },
+    {
+      "code": "LDO",
+      "pair": "LDO/USDT",
+      "name": "LDO",
+      "group": "defi",
+      "quote_volume_24h": 3360684.59,
+      "trade_count_24h": 49049,
+      "status": "TRADING"
+    },
+    {
+      "code": "RUNE",
+      "pair": "RUNE/USDT",
+      "name": "RUNE",
+      "group": "large",
+      "quote_volume_24h": 778055.71,
+      "trade_count_24h": 4535,
+      "status": "TRADING"
+    },
+    {
+      "code": "GRT",
+      "pair": "GRT/USDT",
+      "name": "GRT",
+      "group": "large",
+      "quote_volume_24h": 391100.11,
+      "trade_count_24h": 6156,
+      "status": "TRADING"
+    },
+    {
+      "code": "THETA",
+      "pair": "THETA/USDT",
+      "name": "THETA",
+      "group": "large",
+      "quote_volume_24h": 160702.03,
+      "trade_count_24h": 1566,
+      "status": "TRADING"
+    },
+    {
+      "code": "EGLD",
+      "pair": "EGLD/USDT",
+      "name": "EGLD",
+      "group": "large",
+      "quote_volume_24h": 292427.76,
+      "trade_count_24h": 2917,
+      "status": "TRADING"
+    },
+    {
+      "code": "XTZ",
+      "pair": "XTZ/USDT",
+      "name": "XTZ",
+      "group": "large",
+      "quote_volume_24h": 209323.79,
+      "trade_count_24h": 2955,
+      "status": "TRADING"
+    },
+    {
+      "code": "SEI",
+      "pair": "SEI/USDT",
+      "name": "SEI",
+      "group": "large",
+      "quote_volume_24h": 1133978.55,
+      "trade_count_24h": 22551,
+      "status": "TRADING"
+    },
+    {
+      "code": "TIA",
+      "pair": "TIA/USDT",
+      "name": "TIA",
+      "group": "large",
+      "quote_volume_24h": 1465832.05,
+      "trade_count_24h": 28210,
+      "status": "TRADING"
+    },
+    {
+      "code": "PYTH",
+      "pair": "PYTH/USDT",
+      "name": "PYTH",
+      "group": "oracle",
+      "quote_volume_24h": 1183149.67,
+      "trade_count_24h": 23538,
+      "status": "TRADING"
+    },
+    {
+      "code": "WLD",
+      "pair": "WLD/USDT",
+      "name": "WLD",
+      "group": "ai",
+      "quote_volume_24h": 16316762.26,
+      "trade_count_24h": 128069,
+      "status": "TRADING"
+    },
+    {
+      "code": "TAO",
+      "pair": "TAO/USDT",
+      "name": "TAO",
+      "group": "ai",
+      "quote_volume_24h": 9674098.7,
+      "trade_count_24h": 58173,
+      "status": "TRADING"
+    },
+    {
+      "code": "ARKM",
+      "pair": "ARKM/USDT",
+      "name": "ARKM",
+      "group": "ai",
+      "quote_volume_24h": 370608.97,
+      "trade_count_24h": 11305,
+      "status": "TRADING"
+    },
+    {
+      "code": "ONDO",
+      "pair": "ONDO/USDT",
+      "name": "ONDO",
+      "group": "rwa",
+      "quote_volume_24h": 19249686.36,
+      "trade_count_24h": 119714,
+      "status": "TRADING"
+    },
+    {
+      "code": "ENA",
+      "pair": "ENA/USDT",
+      "name": "ENA",
+      "group": "defi",
+      "quote_volume_24h": 18438008.85,
+      "trade_count_24h": 73832,
+      "status": "TRADING"
+    },
+    {
+      "code": "PENDLE",
+      "pair": "PENDLE/USDT",
+      "name": "PENDLE",
+      "group": "defi",
+      "quote_volume_24h": 1708868.78,
+      "trade_count_24h": 18702,
+      "status": "TRADING"
+    },
+    {
+      "code": "MORPHO",
+      "pair": "MORPHO/USDT",
+      "name": "MORPHO",
+      "group": "defi",
+      "quote_volume_24h": 4426966.29,
+      "trade_count_24h": 70907,
+      "status": "TRADING"
+    },
+    {
+      "code": "ETHFI",
+      "pair": "ETHFI/USDT",
+      "name": "ETHFI",
+      "group": "defi",
+      "quote_volume_24h": 3035493.9,
+      "trade_count_24h": 46561,
+      "status": "TRADING"
+    },
+    {
+      "code": "EIGEN",
+      "pair": "EIGEN/USDT",
+      "name": "EIGEN",
+      "group": "defi",
+      "quote_volume_24h": 2090572.86,
+      "trade_count_24h": 29596,
+      "status": "TRADING"
+    },
+    {
+      "code": "JTO",
+      "pair": "JTO/USDT",
+      "name": "JTO",
+      "group": "defi",
+      "quote_volume_24h": 3186292.87,
+      "trade_count_24h": 75583,
+      "status": "TRADING"
+    },
+    {
+      "code": "STRK",
+      "pair": "STRK/USDT",
+      "name": "STRK",
+      "group": "layer2",
+      "quote_volume_24h": 998713.24,
+      "trade_count_24h": 9801,
+      "status": "TRADING"
+    },
+    {
+      "code": "ZK",
+      "pair": "ZK/USDT",
+      "name": "ZK",
+      "group": "layer2",
+      "quote_volume_24h": 989298.09,
+      "trade_count_24h": 5764,
+      "status": "TRADING"
+    },
+    {
+      "code": "METIS",
+      "pair": "METIS/USDT",
+      "name": "METIS",
+      "group": "layer2",
+      "quote_volume_24h": 68815.95,
+      "trade_count_24h": 917,
+      "status": "TRADING"
+    },
+    {
+      "code": "MANTA",
+      "pair": "MANTA/USDT",
+      "name": "MANTA",
+      "group": "layer2",
+      "quote_volume_24h": 165058.71,
+      "trade_count_24h": 5467,
+      "status": "TRADING"
+    },
+    {
+      "code": "POL",
+      "pair": "POL/USDT",
+      "name": "POL",
+      "group": "layer2",
+      "quote_volume_24h": 2350211.58,
+      "trade_count_24h": 32883,
+      "status": "TRADING"
+    },
+    {
+      "code": "CRV",
+      "pair": "CRV/USDT",
+      "name": "CRV",
+      "group": "defi",
+      "quote_volume_24h": 1742278.85,
+      "trade_count_24h": 15209,
+      "status": "TRADING"
+    },
+    {
+      "code": "COMP",
+      "pair": "COMP/USDT",
+      "name": "COMP",
+      "group": "defi",
+      "quote_volume_24h": 251351.03,
+      "trade_count_24h": 2049,
+      "status": "TRADING"
+    },
+    {
+      "code": "SNX",
+      "pair": "SNX/USDT",
+      "name": "SNX",
+      "group": "large",
+      "quote_volume_24h": 2586747.52,
+      "trade_count_24h": 22460,
+      "status": "TRADING"
+    },
+    {
+      "code": "DYDX",
+      "pair": "DYDX/USDT",
+      "name": "DYDX",
+      "group": "defi",
+      "quote_volume_24h": 1169761.98,
+      "trade_count_24h": 18208,
+      "status": "TRADING"
+    },
+    {
+      "code": "SUSHI",
+      "pair": "SUSHI/USDT",
+      "name": "SUSHI",
+      "group": "defi",
+      "quote_volume_24h": 315084.1,
+      "trade_count_24h": 5098,
+      "status": "TRADING"
+    },
+    {
+      "code": "CAKE",
+      "pair": "CAKE/USDT",
+      "name": "CAKE",
+      "group": "defi",
+      "quote_volume_24h": 715558.8,
+      "trade_count_24h": 10125,
+      "status": "TRADING"
+    },
+    {
+      "code": "RAY",
+      "pair": "RAY/USDT",
+      "name": "RAY",
+      "group": "defi",
+      "quote_volume_24h": 699471.58,
+      "trade_count_24h": 7211,
+      "status": "TRADING"
+    },
+    {
+      "code": "GALA",
+      "pair": "GALA/USDT",
+      "name": "GALA",
+      "group": "gaming",
+      "quote_volume_24h": 634607.48,
+      "trade_count_24h": 7049,
+      "status": "TRADING"
+    },
+    {
+      "code": "SAND",
+      "pair": "SAND/USDT",
+      "name": "SAND",
+      "group": "gaming",
+      "quote_volume_24h": 582068.82,
+      "trade_count_24h": 8635,
+      "status": "TRADING"
+    },
+    {
+      "code": "MANA",
+      "pair": "MANA/USDT",
+      "name": "MANA",
+      "group": "gaming",
+      "quote_volume_24h": 153424.93,
+      "trade_count_24h": 2014,
+      "status": "TRADING"
+    },
+    {
+      "code": "AXS",
+      "pair": "AXS/USDT",
+      "name": "AXS",
+      "group": "gaming",
+      "quote_volume_24h": 527198.73,
+      "trade_count_24h": 8430,
+      "status": "TRADING"
+    },
+    {
+      "code": "ILV",
+      "pair": "ILV/USDT",
+      "name": "ILV",
+      "group": "gaming",
+      "quote_volume_24h": 217504.75,
+      "trade_count_24h": 2564,
+      "status": "TRADING"
+    },
+    {
+      "code": "YGG",
+      "pair": "YGG/USDT",
+      "name": "YGG",
+      "group": "gaming",
+      "quote_volume_24h": 552651.35,
+      "trade_count_24h": 10989,
+      "status": "TRADING"
+    },
+    {
+      "code": "SUPER",
+      "pair": "SUPER/USDT",
+      "name": "SUPER",
+      "group": "gaming",
+      "quote_volume_24h": 137344.44,
+      "trade_count_24h": 1449,
+      "status": "TRADING"
+    },
+    {
+      "code": "RONIN",
+      "pair": "RONIN/USDT",
+      "name": "RONIN",
+      "group": "gaming",
+      "quote_volume_24h": 223562.94,
+      "trade_count_24h": 4387,
+      "status": "TRADING"
+    },
+    {
+      "code": "AR",
+      "pair": "AR/USDT",
+      "name": "AR",
+      "group": "depin",
+      "quote_volume_24h": 454747.63,
+      "trade_count_24h": 4387,
+      "status": "TRADING"
+    },
+    {
+      "code": "STORJ",
+      "pair": "STORJ/USDT",
+      "name": "STORJ",
+      "group": "storage",
+      "quote_volume_24h": 54021.41,
+      "trade_count_24h": 739,
+      "status": "TRADING"
+    },
+    {
+      "code": "IOTX",
+      "pair": "IOTX/USDT",
+      "name": "IOTX",
+      "group": "depin",
+      "quote_volume_24h": 53701.91,
+      "trade_count_24h": 457,
+      "status": "TRADING"
+    },
+    {
+      "code": "IO",
+      "pair": "IO/USDT",
+      "name": "IO",
+      "group": "ai",
+      "quote_volume_24h": 517889.19,
+      "trade_count_24h": 5403,
+      "status": "TRADING"
+    },
+    {
+      "code": "BAND",
+      "pair": "BAND/USDT",
+      "name": "BAND",
+      "group": "oracle",
+      "quote_volume_24h": 36852.96,
+      "trade_count_24h": 1148,
+      "status": "TRADING"
+    },
+    {
+      "code": "API3",
+      "pair": "API3/USDT",
+      "name": "API3",
+      "group": "oracle",
+      "quote_volume_24h": 935167.68,
+      "trade_count_24h": 22424,
+      "status": "TRADING"
+    },
+    {
+      "code": "PEPE",
+      "pair": "PEPE/USDT",
+      "name": "PEPE",
+      "group": "meme",
+      "quote_volume_24h": 10205638.46,
+      "trade_count_24h": 35618,
+      "status": "TRADING"
+    },
+    {
+      "code": "BONK",
+      "pair": "BONK/USDT",
+      "name": "BONK",
+      "group": "meme",
+      "quote_volume_24h": 2683025.73,
+      "trade_count_24h": 15387,
+      "status": "TRADING"
+    },
+    {
+      "code": "FLOKI",
+      "pair": "FLOKI/USDT",
+      "name": "FLOKI",
+      "group": "meme",
+      "quote_volume_24h": 574535.11,
+      "trade_count_24h": 35405,
+      "status": "TRADING"
+    },
+    {
+      "code": "WIF",
+      "pair": "WIF/USDT",
+      "name": "WIF",
+      "group": "meme",
+      "quote_volume_24h": 823130.69,
+      "trade_count_24h": 14319,
+      "status": "TRADING"
+    },
+    {
+      "code": "PENGU",
+      "pair": "PENGU/USDT",
+      "name": "PENGU",
+      "group": "meme",
+      "quote_volume_24h": 2924777.38,
+      "trade_count_24h": 48440,
+      "status": "TRADING"
+    },
+    {
+      "code": "VIRTUAL",
+      "pair": "VIRTUAL/USDT",
+      "name": "VIRTUAL",
+      "group": "ai",
+      "quote_volume_24h": 3940201.05,
+      "trade_count_24h": 56391,
+      "status": "TRADING"
+    },
+    {
+      "code": "ZEC",
+      "pair": "ZEC/USDT",
+      "name": "ZEC",
+      "group": "large",
+      "quote_volume_24h": 49625836.69,
+      "trade_count_24h": 188545,
+      "status": "TRADING"
+    },
+    {
+      "code": "DASH",
+      "pair": "DASH/USDT",
+      "name": "DASH",
+      "group": "large",
+      "quote_volume_24h": 2929147.72,
+      "trade_count_24h": 17013,
+      "status": "TRADING"
+    },
+    {
+      "code": "ONE",
+      "pair": "ONE/USDT",
+      "name": "ONE",
+      "group": "large",
+      "quote_volume_24h": 2537936.23,
+      "trade_count_24h": 23915,
+      "status": "TRADING"
+    },
+    {
+      "code": "BLUR",
+      "pair": "BLUR/USDT",
+      "name": "BLUR",
+      "group": "large",
+      "quote_volume_24h": 2650793.67,
+      "trade_count_24h": 27845,
+      "status": "TRADING"
+    },
+    {
+      "code": "ACE",
+      "pair": "ACE/USDT",
+      "name": "ACE",
+      "group": "large",
+      "quote_volume_24h": 2942307.89,
+      "trade_count_24h": 41681,
+      "status": "TRADING"
+    },
+    {
+      "code": "PROM",
+      "pair": "PROM/USDT",
+      "name": "PROM",
+      "group": "large",
+      "quote_volume_24h": 2942573.94,
+      "trade_count_24h": 49607,
+      "status": "TRADING"
+    },
+    {
+      "code": "KAVA",
+      "pair": "KAVA/USDT",
+      "name": "KAVA",
+      "group": "large",
+      "quote_volume_24h": 170760.64,
+      "trade_count_24h": 1852,
+      "status": "TRADING"
+    },
+    {
+      "code": "MINA",
+      "pair": "MINA/USDT",
+      "name": "MINA",
+      "group": "large",
+      "quote_volume_24h": 131242.74,
+      "trade_count_24h": 1507,
+      "status": "TRADING"
+    },
+    {
+      "code": "ROSE",
+      "pair": "ROSE/USDT",
+      "name": "ROSE",
+      "group": "large",
+      "quote_volume_24h": 183058.8,
+      "trade_count_24h": 2065,
+      "status": "TRADING"
+    },
+    {
+      "code": "CELO",
+      "pair": "CELO/USDT",
+      "name": "CELO",
+      "group": "large",
+      "quote_volume_24h": 521933.04,
+      "trade_count_24h": 7528,
+      "status": "TRADING"
+    },
+    {
+      "code": "ZIL",
+      "pair": "ZIL/USDT",
+      "name": "ZIL",
+      "group": "large",
+      "quote_volume_24h": 1129060.8,
+      "trade_count_24h": 13847,
+      "status": "TRADING"
+    },
+    {
+      "code": "QTUM",
+      "pair": "QTUM/USDT",
+      "name": "QTUM",
+      "group": "large",
+      "quote_volume_24h": 174464.3,
+      "trade_count_24h": 3399,
+      "status": "TRADING"
+    },
+    {
+      "code": "IOTA",
+      "pair": "IOTA/USDT",
+      "name": "IOTA",
+      "group": "large",
+      "quote_volume_24h": 402841.28,
+      "trade_count_24h": 4156,
+      "status": "TRADING"
+    },
+    {
+      "code": "NEO",
+      "pair": "NEO/USDT",
+      "name": "NEO",
+      "group": "large",
+      "quote_volume_24h": 395147.85,
+      "trade_count_24h": 3316,
+      "status": "TRADING"
+    }
+  ],
+  "rejected_sample": [
+    {
+      "symbol": "MKRUSDT",
+      "reason": "BREAK"
+    },
+    {
+      "symbol": "BEAMUSDT",
+      "reason": "BREAK"
+    },
+    {
+      "symbol": "HNTUSDT",
+      "reason": "BREAK"
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import time
 from config.background_settings import BACKGROUND_LOG_DIR, RUNTIME_DIR, load_background_settings
 from config.settings import CACHE_DIR, DATABASE_FILE, load_watchlists
 from database.background_migrations import ensure_background_schema
+from database.intelligence_migrations import ensure_intelligence_schema
 from database.db import Database
 from engine.background_orchestrator import BackgroundOrchestrator
 from engine.cache_engine import CacheEngine
@@ -79,6 +80,7 @@ def main() -> int:
 
     database = Database(DATABASE_FILE)
     ensure_background_schema(database)
+    ensure_intelligence_schema(database)
     data_engine = DataEngine(CacheEngine(CACHE_DIR))
     universe_manager = UniverseManager()
     watchlists = load_watchlists()

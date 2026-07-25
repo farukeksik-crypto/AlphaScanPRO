@@ -1,41 +1,17 @@
-# AlphaScan PRO — Sprint 2
+# AlphaScan PRO Master 10.40
 
-Sprint 1 temeli üzerine şunlar eklendi:
+Robot Intelligence 10.30 üzerine kurulu **Performance Center** sürümüdür.
 
-- Sol menü
-- Dashboard
-- Arındırma 0 tarama
-- Kripto tarama
-- Emtia tarama
-- Ortak sinyal motoru
-- Açıklanabilir puan ve neden alanı
+- Günlük / haftalık / aylık performans
+- Equity curve ve drawdown
+- Puan, risk, karar, strateji ve tutma süresi segmentleri
+- Kazanan / kaybeden özellik karşılaştırması
+- Minimum örneklem korumalı öneri motoru
+- Ayarları otomatik değiştirmeyen kontrollü optimizasyon önerileri
+- Filtrelenmiş CSV dışa aktarımı
 
-## Kurulum
-
-`AlphaScanPRO_Sprint2` klasörünü şu konuma koy:
-
-```text
-C:\Users\Faruk\AlphaScanPRO_Sprint2
-```
-
-## Çalıştırma
+Kurulum ve doğrulama:
 
 ```powershell
-cd C:\Users\Faruk\AlphaScanPRO_Sprint2
-py -3.13 -m streamlit run app.py --server.port 8503
+powershell -ExecutionPolicy Bypass -File .\MASTER_KURULUM_VE_TEST.ps1
 ```
-
-Tarayıcı:
-
-```text
-http://localhost:8503
-```
-
-## İlk test sırası
-
-1. Sistem Durumu
-2. Arındırma 0
-3. Kripto
-4. Emtia
-
-İkinci taramaların ilk taramadan daha hızlı olması beklenir.

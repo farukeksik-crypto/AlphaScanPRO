@@ -1,8 +1,0 @@
-AlphaScan PRO Sprint 10.11B
-
-Bu klasörün içindeki apply_sprint10_11b.py, verify_sprint10_11b.py ve payload klasörünü
-AlphaScanPRO_Git_Temiz proje ana klasörüne kopyalayın.
-
-Çalıştırma:
-py -3.13 .\apply_sprint10_11b.py
-py -3.13 .\verify_sprint10_11b.py

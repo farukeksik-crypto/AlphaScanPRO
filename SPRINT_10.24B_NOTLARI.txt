@@ -1,0 +1,8 @@
+AlphaScan PRO Sprint 10.24B — Robot Diagnostics Dashboard
+
+- DecisionTrace verileri doğrudan filter_decisions tablosundan okunur.
+- Son tarama için incelenen, kabul edilen, reddedilen ve kabul oranı gösterilir.
+- Engel, karar ve risk dağılımları ayrı sekmelerde sunulur.
+- Her sembolün karar ayrıntısı ve Türkçe reddetme nedenleri görünürdür.
+- Eski ROBOT_DIAGNOSTIC paneli geriye dönük uyumluluk için korunmuştur.
+- Robot işlem kuralları ve eşikleri değiştirilmemiştir.

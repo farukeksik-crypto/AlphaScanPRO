@@ -1,0 +1,2148 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-22T20:09:58",
+  "universes": {
+    "arindirma_0": {
+      "name": "Arındırma 0",
+      "source": "legacy_watchlist_seed",
+      "updated_at": "2026-07-22T20:04:27",
+      "items": [
+        {
+          "kod": "ALBRK",
+          "sembol": "ALBRK.IS",
+          "ad": "Albaraka Türk",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "BAHKM",
+          "sembol": "BAHKM.IS",
+          "ad": "Bahadır Kimya",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "BEGYO",
+          "sembol": "BEGYO.IS",
+          "ad": "Batı Ege GYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "BIMAS",
+          "sembol": "BIMAS.IS",
+          "ad": "BİM Birleşik Mağazalar",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "BINBN",
+          "sembol": "BINBN.IS",
+          "ad": "Bin Ulaşım",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "BORSK",
+          "sembol": "BORSK.IS",
+          "ad": "Borsa İstanbul",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "BOSSA",
+          "sembol": "BOSSA.IS",
+          "ad": "Bossa",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "CELHA",
+          "sembol": "CELHA.IS",
+          "ad": "Çelik Halat",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "COSMO",
+          "sembol": "COSMO.IS",
+          "ad": "Cosmos Yatırım",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "DARDL",
+          "sembol": "DARDL.IS",
+          "ad": "Dardanel",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "DOFER",
+          "sembol": "DOFER.IS",
+          "ad": "Dofer Yapı",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "EBEBK",
+          "sembol": "EBEBK.IS",
+          "ad": "Ebebek",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "EKSUN",
+          "sembol": "EKSUN.IS",
+          "ad": "Eksun Gıda",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "ESCOM",
+          "sembol": "ESCOM.IS",
+          "ad": "Escort Teknoloji",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "FZLGY",
+          "sembol": "FZLGY.IS",
+          "ad": "Fuzul GYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "GUNDG",
+          "sembol": "GUNDG.IS",
+          "ad": "Gündoğdu Gıda",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "IZFAS",
+          "sembol": "IZFAS.IS",
+          "ad": "İzmir Fırça",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "IZINV",
+          "sembol": "IZINV.IS",
+          "ad": "İz Yatırım Holding",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "KRGYO",
+          "sembol": "KRGYO.IS",
+          "ad": "Körfez GYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "KTLEV",
+          "sembol": "KTLEV.IS",
+          "ad": "Katılımevim",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "KZGYO",
+          "sembol": "KZGYO.IS",
+          "ad": "Kuzugrup GYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "LUKSK",
+          "sembol": "LUKSK.IS",
+          "ad": "Lüks Kadife",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "MPARK",
+          "sembol": "MPARK.IS",
+          "ad": "MLP Sağlık",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "PENGD",
+          "sembol": "PENGD.IS",
+          "ad": "Penguen Gıda",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        },
+        {
+          "kod": "YUNSA",
+          "sembol": "YUNSA.IS",
+          "ad": "Yünsa",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:04:27"
+        }
+      ]
+    },
+    "katilim_tum": {
+      "name": "Katılım Tüm",
+      "source": "config_market_universes",
+      "updated_at": "2026-07-22T20:09:58",
+      "items": [
+        {
+          "kod": "AAGYO",
+          "sembol": "AAGYO.IS",
+          "ad": "AGAOGLU GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ACSEL",
+          "sembol": "ACSEL.IS",
+          "ad": "ACIPAYAM SELULOZ",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "AHGAZ",
+          "sembol": "AHGAZ.IS",
+          "ad": "AHLATCI DOGALGAZ",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "AHSGY",
+          "sembol": "AHSGY.IS",
+          "ad": "AHES GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "AKFYE",
+          "sembol": "AKFYE.IS",
+          "ad": "AKFEN YEN. ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "AKHAN",
+          "sembol": "AKHAN.IS",
+          "ad": "AKHAN UN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ALBRK",
+          "sembol": "ALBRK.IS",
+          "ad": "ALBARAKA TURK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ALCTL",
+          "sembol": "ALCTL.IS",
+          "ad": "ALCATEL LUCENT TELETAS",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ALFAS",
+          "sembol": "ALFAS.IS",
+          "ad": "ALFA SOLAR ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ALKA",
+          "sembol": "ALKA.IS",
+          "ad": "ALKIM KAGIT",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ALKIM",
+          "sembol": "ALKIM.IS",
+          "ad": "ALKIM KIMYA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ALKLC",
+          "sembol": "ALKLC.IS",
+          "ad": "ALTINKILIC GIDA VE SUT",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ALTNY",
+          "sembol": "ALTNY.IS",
+          "ad": "ALTINAY SAVUNMA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ALVES",
+          "sembol": "ALVES.IS",
+          "ad": "ALVES KABLO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ANGEN",
+          "sembol": "ANGEN.IS",
+          "ad": "ANATOLIA TANI VE BIYOTEKNOLOJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ARASE",
+          "sembol": "ARASE.IS",
+          "ad": "DOGU ARAS ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ARDYZ",
+          "sembol": "ARDYZ.IS",
+          "ad": "ARD BILISIM TEKNOLOJILERI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ARENA",
+          "sembol": "ARENA.IS",
+          "ad": "ARENA BILGISAYAR",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ARFYE",
+          "sembol": "ARFYE.IS",
+          "ad": "ARF BIO YENILENEBILIR ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ASELS",
+          "sembol": "ASELS.IS",
+          "ad": "ASELSAN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ATAKP",
+          "sembol": "ATAKP.IS",
+          "ad": "ATAKEY PATATES",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ATATP",
+          "sembol": "ATATP.IS",
+          "ad": "ATP YAZILIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "AVPGY",
+          "sembol": "AVPGY.IS",
+          "ad": "AVRUPAKENT GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "AYEN",
+          "sembol": "AYEN.IS",
+          "ad": "AYEN ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BAHKM",
+          "sembol": "BAHKM.IS",
+          "ad": "BAHADIR KIMYA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BAKAB",
+          "sembol": "BAKAB.IS",
+          "ad": "BAK AMBALAJ",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BASGZ",
+          "sembol": "BASGZ.IS",
+          "ad": "BASKENT DOGALGAZ GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BAYRK",
+          "sembol": "BAYRK.IS",
+          "ad": "BAYRAK TABAN SANAYI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BEGYO",
+          "sembol": "BEGYO.IS",
+          "ad": "BATI EGE GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BERA",
+          "sembol": "BERA.IS",
+          "ad": "BERA HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BESTE",
+          "sembol": "BESTE.IS",
+          "ad": "BEST BRANDS ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BETAE",
+          "sembol": "BETAE.IS",
+          "ad": "BETA ENERJI VE TEKNOLOJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BIENY",
+          "sembol": "BIENY.IS",
+          "ad": "BIEN YAPI URUNLERI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BIMAS",
+          "sembol": "BIMAS.IS",
+          "ad": "BIM MAGAZALAR",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BINBN",
+          "sembol": "BINBN.IS",
+          "ad": "BIN ULASIM TEKNOLOJILERI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BINHO",
+          "sembol": "BINHO.IS",
+          "ad": "1000 YATIRIMLAR HOL.",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BMSTL",
+          "sembol": "BMSTL.IS",
+          "ad": "BMS BIRLESIK METAL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BORSK",
+          "sembol": "BORSK.IS",
+          "ad": "BOR SEKER",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BOSSA",
+          "sembol": "BOSSA.IS",
+          "ad": "BOSSA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BRISA",
+          "sembol": "BRISA.IS",
+          "ad": "BRISA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BRKSN",
+          "sembol": "BRKSN.IS",
+          "ad": "BERKOSAN YALITIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BRLSM",
+          "sembol": "BRLSM.IS",
+          "ad": "BIRLESIM MUHENDISLIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BSOKE",
+          "sembol": "BSOKE.IS",
+          "ad": "BATICIM CIMENTO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BUCIM",
+          "sembol": "BUCIM.IS",
+          "ad": "BURSA CIMENTO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BURCE",
+          "sembol": "BURCE.IS",
+          "ad": "BURCELIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BURVA",
+          "sembol": "BURVA.IS",
+          "ad": "BURCELIK VANA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "BYDNR",
+          "sembol": "BYDNR.IS",
+          "ad": "BAYDONER RESTORANLARI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CANTE",
+          "sembol": "CANTE.IS",
+          "ad": "CAN2 TERMIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CATES",
+          "sembol": "CATES.IS",
+          "ad": "CATES ELEKTRIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CELHA",
+          "sembol": "CELHA.IS",
+          "ad": "CELIK HALAT",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CEMTS",
+          "sembol": "CEMTS.IS",
+          "ad": "CEMTAS",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CEMZY",
+          "sembol": "CEMZY.IS",
+          "ad": "CEM ZEYTIN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CIMSA",
+          "sembol": "CIMSA.IS",
+          "ad": "CIMSA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CMBTN",
+          "sembol": "CMBTN.IS",
+          "ad": "CIMBETON",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "COSMO",
+          "sembol": "COSMO.IS",
+          "ad": "COSMOS YAT. HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CVKMD",
+          "sembol": "CVKMD.IS",
+          "ad": "CVK MADEN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "CWENE",
+          "sembol": "CWENE.IS",
+          "ad": "CW ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DAPGM",
+          "sembol": "DAPGM.IS",
+          "ad": "DAP GAYRIMENKUL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DARDL",
+          "sembol": "DARDL.IS",
+          "ad": "DARDANEL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DCTTR",
+          "sembol": "DCTTR.IS",
+          "ad": "DCT TRADING DIS TICARET",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DENGE",
+          "sembol": "DENGE.IS",
+          "ad": "DENGE HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DESPC",
+          "sembol": "DESPC.IS",
+          "ad": "DESPEC BILGISAYAR",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DGATE",
+          "sembol": "DGATE.IS",
+          "ad": "DATAGATE BILGISAYAR",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DITAS",
+          "sembol": "DITAS.IS",
+          "ad": "DITAS BDY",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DMSAS",
+          "sembol": "DMSAS.IS",
+          "ad": "DEMISAS DOKUM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DNISI",
+          "sembol": "DNISI.IS",
+          "ad": "DINAMIK ISI MAKINA YALITIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DOFER",
+          "sembol": "DOFER.IS",
+          "ad": "DOFER YAPI MALZEMELERI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DOFRB",
+          "sembol": "DOFRB.IS",
+          "ad": "DOF ROBOTIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DOGUB",
+          "sembol": "DOGUB.IS",
+          "ad": "DOGUSAN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "DYOBY",
+          "sembol": "DYOBY.IS",
+          "ad": "DYO BOYA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EBEBK",
+          "sembol": "EBEBK.IS",
+          "ad": "EBEBEK MAGAZACILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EDATA",
+          "sembol": "EDATA.IS",
+          "ad": "E-DATA TEKNOLOJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EDIP",
+          "sembol": "EDIP.IS",
+          "ad": "EDIP GAYRIMENKUL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EFOR",
+          "sembol": "EFOR.IS",
+          "ad": "EFOR YATIRIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EGEPO",
+          "sembol": "EGEPO.IS",
+          "ad": "NASMED EGEPOL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EGGUB",
+          "sembol": "EGGUB.IS",
+          "ad": "EGE GUBRE",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EGPRO",
+          "sembol": "EGPRO.IS",
+          "ad": "EGE PROFIL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EKGYO",
+          "sembol": "EKGYO.IS",
+          "ad": "EMLAK KONUT GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EKSUN",
+          "sembol": "EKSUN.IS",
+          "ad": "EKSUN GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ELITE",
+          "sembol": "ELITE.IS",
+          "ad": "ELITE NATUREL ORGANIK GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EMPAE",
+          "sembol": "EMPAE.IS",
+          "ad": "EMPA ELEKTRONIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ENJSA",
+          "sembol": "ENJSA.IS",
+          "ad": "ENERJISA ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EREGL",
+          "sembol": "EREGL.IS",
+          "ad": "EREGLI DEMIR CELIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ESCOM",
+          "sembol": "ESCOM.IS",
+          "ad": "ESCORT TEKNOLOJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EUPWR",
+          "sembol": "EUPWR.IS",
+          "ad": "EUROPOWER ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "EYGYO",
+          "sembol": "EYGYO.IS",
+          "ad": "EYG GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "FADE",
+          "sembol": "FADE.IS",
+          "ad": "FADE GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "FONET",
+          "sembol": "FONET.IS",
+          "ad": "FONET BILGI TEKNOLOJILERI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "FORMT",
+          "sembol": "FORMT.IS",
+          "ad": "FORMET METAL VE CAM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "FORTE",
+          "sembol": "FORTE.IS",
+          "ad": "FORTE BILGI ILETISIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "FRMPL",
+          "sembol": "FRMPL.IS",
+          "ad": "FORMUL PLASTIK VE METAL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "FZLGY",
+          "sembol": "FZLGY.IS",
+          "ad": "FUZUL GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GEDZA",
+          "sembol": "GEDZA.IS",
+          "ad": "GEDIZ AMBALAJ",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GENIL",
+          "sembol": "GENIL.IS",
+          "ad": "GEN ILAC",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GENKM",
+          "sembol": "GENKM.IS",
+          "ad": "GENTAS KIMYA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GENTS",
+          "sembol": "GENTS.IS",
+          "ad": "GENTAS",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GEREL",
+          "sembol": "GEREL.IS",
+          "ad": "GERSAN ELEKTRIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GESAN",
+          "sembol": "GESAN.IS",
+          "ad": "GIRISIM ELEKTRIK SANAYI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GLRMK",
+          "sembol": "GLRMK.IS",
+          "ad": "GULERMAK AGIR SANAYI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GMTAS",
+          "sembol": "GMTAS.IS",
+          "ad": "GIMAT MAGAZACILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GOKNR",
+          "sembol": "GOKNR.IS",
+          "ad": "GOKNUR GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GOLDA",
+          "sembol": "GOLDA.IS",
+          "ad": "GOLDA GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GOLTS",
+          "sembol": "GOLTS.IS",
+          "ad": "GOLTAS CIMENTO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GOODY",
+          "sembol": "GOODY.IS",
+          "ad": "GOOD-YEAR",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GRSEL",
+          "sembol": "GRSEL.IS",
+          "ad": "GUR-SEL TURIZM TASIMACILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GRTHO",
+          "sembol": "GRTHO.IS",
+          "ad": "GRAINTURK HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GUBRF",
+          "sembol": "GUBRF.IS",
+          "ad": "GUBRE FABRIK.",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "GUNDG",
+          "sembol": "GUNDG.IS",
+          "ad": "GUNDOGDU GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "HATSN",
+          "sembol": "HATSN.IS",
+          "ad": "HATSAN GEMI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "HKTM",
+          "sembol": "HKTM.IS",
+          "ad": "HIDROPAR HAREKET KONTROL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "HOROZ",
+          "sembol": "HOROZ.IS",
+          "ad": "HOROZ LOJISTIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "HRKET",
+          "sembol": "HRKET.IS",
+          "ad": "HAREKET PROJE TASIMACILIGI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "IDGYO",
+          "sembol": "IDGYO.IS",
+          "ad": "IDEALIST GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "IHEVA",
+          "sembol": "IHEVA.IS",
+          "ad": "IHLAS EV ALETLERI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "IHLAS",
+          "sembol": "IHLAS.IS",
+          "ad": "IHLAS HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "IHLGM",
+          "sembol": "IHLGM.IS",
+          "ad": "IHLAS GAYRIMENKUL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "IHYAY",
+          "sembol": "IHYAY.IS",
+          "ad": "IHLAS YAYIN HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "IMASM",
+          "sembol": "IMASM.IS",
+          "ad": "IMAS MAKINA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "INGRM",
+          "sembol": "INGRM.IS",
+          "ad": "INGRAM BILISIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "INTEM",
+          "sembol": "INTEM.IS",
+          "ad": "INTEMA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ISDMR",
+          "sembol": "ISDMR.IS",
+          "ad": "ISKENDERUN DEMIR CELIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "IZFAS",
+          "sembol": "IZFAS.IS",
+          "ad": "IZMIR FIRCA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "IZINV",
+          "sembol": "IZINV.IS",
+          "ad": "IZ YATIRIM HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "JANTS",
+          "sembol": "JANTS.IS",
+          "ad": "JANTSA JANT SANAYI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KARSN",
+          "sembol": "KARSN.IS",
+          "ad": "KARSAN OTOMOTIV",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KATMR",
+          "sembol": "KATMR.IS",
+          "ad": "KATMERCILER EKIPMAN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KBORU",
+          "sembol": "KBORU.IS",
+          "ad": "KUZEY BORU",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KCAER",
+          "sembol": "KCAER.IS",
+          "ad": "KOCAER CELIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KIMMR",
+          "sembol": "KIMMR.IS",
+          "ad": "KIM MARKET-ERSAN ALISVERIS",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KLSER",
+          "sembol": "KLSER.IS",
+          "ad": "KALESERAMIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KLSYN",
+          "sembol": "KLSYN.IS",
+          "ad": "KOLEKSIYON MOBILYA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KMPUR",
+          "sembol": "KMPUR.IS",
+          "ad": "KIMTEKS POLIURETAN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KNFRT",
+          "sembol": "KNFRT.IS",
+          "ad": "KONFRUT TARIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KOCMT",
+          "sembol": "KOCMT.IS",
+          "ad": "KOC METALURJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KONKA",
+          "sembol": "KONKA.IS",
+          "ad": "KONYA KAGIT",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KONYA",
+          "sembol": "KONYA.IS",
+          "ad": "KONYA CIMENTO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KOPOL",
+          "sembol": "KOPOL.IS",
+          "ad": "KOZA POLYESTER",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KOTON",
+          "sembol": "KOTON.IS",
+          "ad": "KOTON MAGAZACILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KRDMA",
+          "sembol": "KRDMA.IS",
+          "ad": "KARDEMIR (A)",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KRDMB",
+          "sembol": "KRDMB.IS",
+          "ad": "KARDEMIR (B)",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KRDMD",
+          "sembol": "KRDMD.IS",
+          "ad": "KARDEMIR (D)",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KRGYO",
+          "sembol": "KRGYO.IS",
+          "ad": "KORFEZ GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KRONT",
+          "sembol": "KRONT.IS",
+          "ad": "KRON TEKNOLOJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KRPLS",
+          "sembol": "KRPLS.IS",
+          "ad": "KOROPLAST TEMIZLIK AMBALAJ",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KRSTL",
+          "sembol": "KRSTL.IS",
+          "ad": "KRISTAL KOLA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KRVGD",
+          "sembol": "KRVGD.IS",
+          "ad": "KERVAN GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KTLEV",
+          "sembol": "KTLEV.IS",
+          "ad": "KATILIMEVIM TAS. FIN.",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KUTPO",
+          "sembol": "KUTPO.IS",
+          "ad": "KUTAHYA PORSELEN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "KZBGY",
+          "sembol": "KZBGY.IS",
+          "ad": "KIZILBUK GYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "LKMNH",
+          "sembol": "LKMNH.IS",
+          "ad": "LOKMAN HEKIM SAGLIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "LMKDC",
+          "sembol": "LMKDC.IS",
+          "ad": "LIMAK DOGU ANADOLU",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "LOGO",
+          "sembol": "LOGO.IS",
+          "ad": "LOGO YAZILIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "LXGYO",
+          "sembol": "LXGYO.IS",
+          "ad": "LUXERA GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MAGEN",
+          "sembol": "MAGEN.IS",
+          "ad": "MARGUN ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MAKIM",
+          "sembol": "MAKIM.IS",
+          "ad": "MAKIM MAKINE",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MARBL",
+          "sembol": "MARBL.IS",
+          "ad": "TUREKS TURUNC MADENCILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MAVI",
+          "sembol": "MAVI.IS",
+          "ad": "MAVI GIYIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MCARD",
+          "sembol": "MCARD.IS",
+          "ad": "METROPAL KURUMSAL HIZMETLER",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MEDTR",
+          "sembol": "MEDTR.IS",
+          "ad": "MEDITERA TIBBI MALZEME",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MEGMT",
+          "sembol": "MEGMT.IS",
+          "ad": "MEGA METAL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MEKAG",
+          "sembol": "MEKAG.IS",
+          "ad": "MEKA GLOBAL MAKINE",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MERCN",
+          "sembol": "MERCN.IS",
+          "ad": "MERCAN KIMYA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MERKO",
+          "sembol": "MERKO.IS",
+          "ad": "MERKO GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MEYSU",
+          "sembol": "MEYSU.IS",
+          "ad": "MEYSU GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MNDTR",
+          "sembol": "MNDTR.IS",
+          "ad": "MONDI TURKEY",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MOBTL",
+          "sembol": "MOBTL.IS",
+          "ad": "MOBILTEL ILETISIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MOPAS",
+          "sembol": "MOPAS.IS",
+          "ad": "MOPAS MARKETCILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "MPARK",
+          "sembol": "MPARK.IS",
+          "ad": "MLP SAGLIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "NETAS",
+          "sembol": "NETAS.IS",
+          "ad": "NETAS TELEKOM.",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "NETCD",
+          "sembol": "NETCD.IS",
+          "ad": "NETCAD YAZILIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "NTGAZ",
+          "sembol": "NTGAZ.IS",
+          "ad": "NATURELGAZ",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "OBAMS",
+          "sembol": "OBAMS.IS",
+          "ad": "OBA MAKARNACILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "OBASE",
+          "sembol": "OBASE.IS",
+          "ad": "OBASE BILGISAYAR",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ONCSM",
+          "sembol": "ONCSM.IS",
+          "ad": "ONCOSEM ONKOLOJIK SISTEMLER",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ORGE",
+          "sembol": "ORGE.IS",
+          "ad": "ORGE ENERJI ELEKTRIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "OSTIM",
+          "sembol": "OSTIM.IS",
+          "ad": "OSTIM ENDUSTRIYEL YAT",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "OZATD",
+          "sembol": "OZATD.IS",
+          "ad": "OZATA DENIZCILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "OZGYO",
+          "sembol": "OZGYO.IS",
+          "ad": "OZDERICI GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "OZRDN",
+          "sembol": "OZRDN.IS",
+          "ad": "OZERDEN AMBALAJ",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "OZYSR",
+          "sembol": "OZYSR.IS",
+          "ad": "OZYASAR TEL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PAGYO",
+          "sembol": "PAGYO.IS",
+          "ad": "PANORA GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PARSN",
+          "sembol": "PARSN.IS",
+          "ad": "PARSAN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PASEU",
+          "sembol": "PASEU.IS",
+          "ad": "PASIFIK EURASIA LOJISTIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PENGD",
+          "sembol": "PENGD.IS",
+          "ad": "PENGUEN GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PENTA",
+          "sembol": "PENTA.IS",
+          "ad": "PENTA TEKNOLOJI URUNLERI DAGITIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PETKM",
+          "sembol": "PETKM.IS",
+          "ad": "PETKIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PKART",
+          "sembol": "PKART.IS",
+          "ad": "PLASTIKKART",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PLTUR",
+          "sembol": "PLTUR.IS",
+          "ad": "PLATFORM TURIZM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PNSUT",
+          "sembol": "PNSUT.IS",
+          "ad": "PINAR SUT",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "POLHO",
+          "sembol": "POLHO.IS",
+          "ad": "POLISAN HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "PRKME",
+          "sembol": "PRKME.IS",
+          "ad": "PARK ELEK.MADENCILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "QUAGR",
+          "sembol": "QUAGR.IS",
+          "ad": "QUA GRANITE HAYAL YAPI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "RALYH",
+          "sembol": "RALYH.IS",
+          "ad": "RAL YATIRIM HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "RGYAS",
+          "sembol": "RGYAS.IS",
+          "ad": "RONESANS GAYRIMENKUL YAT.",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "RNPOL",
+          "sembol": "RNPOL.IS",
+          "ad": "RAINBOW POLIKARBONAT",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "RODRG",
+          "sembol": "RODRG.IS",
+          "ad": "RODRIGO TEKSTIL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "RUBNS",
+          "sembol": "RUBNS.IS",
+          "ad": "RUBENIS TEKSTIL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SAFKR",
+          "sembol": "SAFKR.IS",
+          "ad": "SAFKAR EGE SOGUTMACILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SAMAT",
+          "sembol": "SAMAT.IS",
+          "ad": "SARAY MATBAACILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SANEL",
+          "sembol": "SANEL.IS",
+          "ad": "SANEL MUHENDISLIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SANKO",
+          "sembol": "SANKO.IS",
+          "ad": "SANKO PAZARLAMA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SARKY",
+          "sembol": "SARKY.IS",
+          "ad": "SARKUYSAN",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SAYAS",
+          "sembol": "SAYAS.IS",
+          "ad": "SAY YENILENEBILIR ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SDTTR",
+          "sembol": "SDTTR.IS",
+          "ad": "SDT UZAY VE SAVUNMA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SEKUR",
+          "sembol": "SEKUR.IS",
+          "ad": "SEKURO PLASTIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SELEC",
+          "sembol": "SELEC.IS",
+          "ad": "SELCUK ECZA DEPOSU",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SELVA",
+          "sembol": "SELVA.IS",
+          "ad": "SELVA GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SILVR",
+          "sembol": "SILVR.IS",
+          "ad": "SILVERLINE ENDUSTRI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SMART",
+          "sembol": "SMART.IS",
+          "ad": "SMARTIKS YAZILIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SNGYO",
+          "sembol": "SNGYO.IS",
+          "ad": "SINPAS GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SNICA",
+          "sembol": "SNICA.IS",
+          "ad": "SANICA ISI SANAYI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SOHOE",
+          "sembol": "SOHOE.IS",
+          "ad": "SOHO GIYIM VE ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SOKE",
+          "sembol": "SOKE.IS",
+          "ad": "SOKE DEGIRMENCILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SRVGY",
+          "sembol": "SRVGY.IS",
+          "ad": "SERVET GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SSAAT",
+          "sembol": "SSAAT.IS",
+          "ad": "SAAT VE SAAT SANAYI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SUNTK",
+          "sembol": "SUNTK.IS",
+          "ad": "SUN TEKSTIL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SURGY",
+          "sembol": "SURGY.IS",
+          "ad": "SUR TATIL EVLERI GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "SUWEN",
+          "sembol": "SUWEN.IS",
+          "ad": "SUWEN TEKSTIL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TARKM",
+          "sembol": "TARKM.IS",
+          "ad": "TARKIM BITKI KORUMA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TEZOL",
+          "sembol": "TEZOL.IS",
+          "ad": "EUROPAP TEZOL KAGIT",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TKFEN",
+          "sembol": "TKFEN.IS",
+          "ad": "TEKFEN HOLDING",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TKNSA",
+          "sembol": "TKNSA.IS",
+          "ad": "TEKNOSA IC VE DIS TICARET",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TMPOL",
+          "sembol": "TMPOL.IS",
+          "ad": "TEMAPOL POLIMER PLASTIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TUCLK",
+          "sembol": "TUCLK.IS",
+          "ad": "TUGCELIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TUKAS",
+          "sembol": "TUKAS.IS",
+          "ad": "TUKAS",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TUPRS",
+          "sembol": "TUPRS.IS",
+          "ad": "TUPRAS",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TUREX",
+          "sembol": "TUREX.IS",
+          "ad": "TUREKS TURIZM TASIMACILIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "TURGG",
+          "sembol": "TURGG.IS",
+          "ad": "TURKER PROJE GAYRIMENKUL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "UCAYM",
+          "sembol": "UCAYM.IS",
+          "ad": "UCAY MUHENDISLIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "UFUK",
+          "sembol": "UFUK.IS",
+          "ad": "UFUK YATIRIM",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ULUSE",
+          "sembol": "ULUSE.IS",
+          "ad": "ULUSOY ELEKTRIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "USAK",
+          "sembol": "USAK.IS",
+          "ad": "USAK SERAMIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "VAKKO",
+          "sembol": "VAKKO.IS",
+          "ad": "VAKKO TEKSTIL",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "VANGD",
+          "sembol": "VANGD.IS",
+          "ad": "VANET GIDA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "YATAS",
+          "sembol": "YATAS.IS",
+          "ad": "YATAS",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "YEOTK",
+          "sembol": "YEOTK.IS",
+          "ad": "YEO TEKNOLOJI ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "YIGIT",
+          "sembol": "YIGIT.IS",
+          "ad": "YIGIT AKU",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "YKSLN",
+          "sembol": "YKSLN.IS",
+          "ad": "YUKSELEN CELIK",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "YUNSA",
+          "sembol": "YUNSA.IS",
+          "ad": "YUNSA",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ZEDUR",
+          "sembol": "ZEDUR.IS",
+          "ad": "ZEDUR ENERJI",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        },
+        {
+          "kod": "ZERGY",
+          "sembol": "ZERGY.IS",
+          "ad": "ZERAY GMYO",
+          "arindirma": null,
+          "active": true,
+          "updated_at": "2026-07-22T20:09:58"
+        }
+      ]
+    }
+  }
+}

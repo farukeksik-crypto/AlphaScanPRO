@@ -44,7 +44,7 @@ class PositionManagementConfig:
     break_even_include_costs: bool = True
     partial_take_profit_pct: float = 0.04
     partial_close_ratio: float = 0.50
-    enable_multi_stage_take_profit: bool = True
+    enable_multi_stage_take_profit: bool = False
     take_profit_levels: tuple[float, float, float] = (0.04, 0.07, 0.10)
     take_profit_ratios: tuple[float, float, float] = (0.40, 0.35, 1.00)
     daily_loss_limit_pct: float = 0.04

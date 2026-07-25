@@ -4,6 +4,8 @@ import json
 from datetime import datetime
 from typing import Any
 
+from engine.decision_trace import build_decision_trace
+
 
 class FilterAnalytics:
     """
@@ -131,34 +133,21 @@ class FilterAnalytics:
             risk = self._safe_text(row.get("Risk"))
             price = self._safe_float(row.get("Fiyat"))
 
-            reject_robot_disabled = not effective_enabled
-            reject_decision = decision not in robot.config.allowed_decisions
-            reject_score = score < robot.config.minimum_score
-            reject_confidence = confidence < robot.config.minimum_confidence
-            reject_probability = probability < robot.config.minimum_probability
-            reject_risk = bool(
-                robot.config.allowed_risks
-                and risk not in robot.config.allowed_risks
+            trace = build_decision_trace(
+                row,
+                robot,
+                robot_enabled=robot_enabled,
             )
-            reject_open_position = robot.has_open_position(symbol)
 
-            reasons: list[str] = []
-            if reject_robot_disabled:
-                reasons.append("robot_disabled")
-            if reject_decision:
-                reasons.append("decision")
-            if reject_score:
-                reasons.append("score")
-            if reject_confidence:
-                reasons.append("confidence")
-            if reject_probability:
-                reasons.append("probability")
-            if reject_risk:
-                reasons.append("risk")
-            if reject_open_position:
-                reasons.append("open_position")
-
-            accepted = not reasons
+            reasons = list(trace.reject_reasons)
+            accepted = trace.accepted
+            reject_robot_disabled = "robot_disabled" in reasons
+            reject_decision = "decision" in reasons
+            reject_score = "score" in reasons
+            reject_confidence = "confidence" in reasons
+            reject_probability = "probability" in reasons
+            reject_risk = "risk" in reasons
+            reject_open_position = "open_position" in reasons
 
             records.append(
                 (

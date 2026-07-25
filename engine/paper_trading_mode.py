@@ -68,11 +68,17 @@ class PaperTradingModeManager:
         now = datetime.now().isoformat(timespec="seconds")
         with self.database.connect() as connection:
             for market in selected:
-                account = account_for_market(market)
-                connection.execute(
-                    "UPDATE robot_accounts SET enabled = ?, updated_at = ? WHERE account_id = ?",
-                    (int(enabled), now, account["account_id"]),
-                )
+                if market == "BIST":
+                    connection.execute(
+                        "UPDATE robot_accounts SET enabled = ?, updated_at = ? WHERE market = 'BIST'",
+                        (int(enabled), now),
+                    )
+                else:
+                    account = account_for_market(market)
+                    connection.execute(
+                        "UPDATE robot_accounts SET enabled = ?, updated_at = ? WHERE account_id = ?",
+                        (int(enabled), now, account["account_id"]),
+                    )
             connection.commit()
 
         settings = load_background_settings(self.config_path)
@@ -90,7 +96,10 @@ class PaperTradingModeManager:
             rows = connection.execute(
                 "SELECT market, enabled FROM robot_accounts ORDER BY market"
             ).fetchall()
-        account_state = {normalize_market(row[0]): bool(row[1]) for row in rows}
+        account_state: dict[str, bool] = {}
+        for market_value, enabled_value in rows:
+            market = normalize_market(market_value)
+            account_state[market] = account_state.get(market, False) or bool(enabled_value)
         enabled = tuple(m for m in SUPPORTED_MARKETS if account_state.get(m, False))
         disabled = tuple(m for m in SUPPORTED_MARKETS if not account_state.get(m, False))
 

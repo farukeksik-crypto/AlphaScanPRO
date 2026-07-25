@@ -1,0 +1,23 @@
+AlphaScan PRO Master 10.24A
+
+Sprint hedefi:
+Robotun işlem açma kuralları ile tanılama/filtre analizi arasında tek bir karar izi oluşturmak.
+
+Eklenenler:
+- engine/decision_trace.py
+- tests/test_decision_trace_10_24a.py
+
+Güncellenenler:
+- engine/filter_analytics.py artık merkezi DecisionTrace kullanır.
+- engine/background_orchestrator.py tanılama metinlerini aynı merkezi kurallardan üretir.
+
+Düzeltilen önemli uyumsuzluklar:
+- Yüksek Risk Override tanılamada artık yanlış biçimde risk engeli göstermez.
+- Geçersiz sembol ve fiyat nedenleri kayda girer.
+- Açık pozisyon, robot kapalı, karar, puan, güven ve olasılık nedenleri sabit sırada üretilir.
+- Robotun karar kuralları değiştirilmemiştir; yalnızca görünürlük ve analiz doğruluğu artırılmıştır.
+
+Yerel doğrulama:
+- Yeni DecisionTrace + TradeSnapshot testleri: 9 passed.
+- Bu çalışma ortamında ccxt ve yfinance bulunmadığı için tam paket burada çalıştırılamadı.
+- Kullanıcının Windows ortamında MASTER_KURULUM_VE_TEST.ps1 tüm bağımlılıklarla tam testi çalıştırır.

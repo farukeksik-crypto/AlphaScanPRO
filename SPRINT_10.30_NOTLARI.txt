@@ -1,0 +1,15 @@
+AlphaScan PRO 10.30 - Robot Intelligence Pack
+
+Tek pakette eklenenler:
+- Merkezi RobotIntelligenceHub
+- Kalıcı Decision Event deposu
+- Learning Queue
+- TradeSnapshot deposu
+- Background Worker otomatik şema kurulumu
+- Her taramada karar olaylarının kaydı
+- Başarılı robot aksiyonlarının öğrenme kuyruğuna aktarılması
+- Açılan işlemler için TradeSnapshot oluşturulması
+- Robot ekranında Intelligence özeti
+- Yeni otomatik testler
+
+Not: İşlem giriş/çıkış eşikleri değiştirilmemiştir.

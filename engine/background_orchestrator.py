@@ -9,10 +9,12 @@ from config.market_universes import get_crypto_pairs
 from database.robot_settings_repository import load_robot_settings
 from engine.analysis_engine import analyze_signal_payload
 from engine.filter_analytics import FilterAnalytics
+from engine.decision_trace import build_decision_trace
 from engine.market_accounts import account_for_context, normalize_market
 from engine.market_intelligence_pipeline import MarketIntelligencePipeline
 from engine.notification_manager import NotificationManager
 from engine.robot_engine import RobotConfig, RobotEngine
+from engine.robot_intelligence_hub import RobotIntelligenceHub
 from engine.scanner import scan_commodities, scan_crypto, scan_yahoo_items
 
 
@@ -46,6 +48,7 @@ class BackgroundOrchestrator:
             database,
             logger,
         )
+        self.intelligence_hub = RobotIntelligenceHub(database, logger)
 
         # Market Intelligence Pipeline ihtiyaç duyulduğunda oluşturulur.
         # Pipeline başlangıç sırasında hata verirse Background Worker
@@ -507,118 +510,16 @@ class BackgroundOrchestrator:
         universe: str = "",
         limit: int = 8,
     ) -> list[str]:
-        diagnostics: list[str] = []
-
+        robot = self._robot_for_market(market, universe)
         ranked = sorted(
             rows,
-            key=lambda row: float(
-                row.get("Puan", 0)
-                or 0
-            ),
+            key=lambda row: float(row.get("Puan", 0) or 0),
             reverse=True,
         )
-
-        robot = self._robot_for_market(
-            market,
-            universe,
-        )
-
-        state = robot.get_state()
-
-        for row in ranked[:limit]:
-            symbol = str(
-                row.get("Kod", "?")
-            )
-
-            decision = str(
-                row.get("Karar", "")
-            )
-
-            score = float(
-                row.get("Puan", 0)
-                or 0
-            )
-
-            confidence = float(
-                row.get("Güven", 0)
-                or 0
-            )
-
-            probability = float(
-                row.get(
-                    "Başarı Göstergesi %",
-                    0,
-                )
-                or 0
-            )
-
-            risk = str(
-                row.get("Risk", "")
-            ).strip()
-
-            reasons: list[str] = []
-
-            if not state["enabled"]:
-                reasons.append("robot kapalı")
-
-            if (
-                decision
-                not in robot.config.allowed_decisions
-            ):
-                reasons.append(
-                    f"karar={decision or 'yok'}"
-                )
-
-            if score < robot.config.minimum_score:
-                reasons.append(
-                    f"puan {score:.0f} "
-                    f"< {robot.config.minimum_score:.0f}"
-                )
-
-            if (
-                confidence
-                < robot.config.minimum_confidence
-            ):
-                reasons.append(
-                    f"güven {confidence:.0f} "
-                    f"< {robot.config.minimum_confidence:.0f}"
-                )
-
-            if (
-                probability
-                < robot.config.minimum_probability
-            ):
-                reasons.append(
-                    f"olasılık %{probability:.0f} "
-                    f"< %{robot.config.minimum_probability:.0f}"
-                )
-
-            if (
-                robot.config.allowed_risks
-                and risk
-                not in robot.config.allowed_risks
-            ):
-                reasons.append(
-                    f"risk={risk or 'yok'} "
-                    "kabul edilmiyor"
-                )
-
-            if robot.has_open_position(symbol):
-                reasons.append(
-                    "açık pozisyon var"
-                )
-
-            if not reasons:
-                reasons.append(
-                    "işleme uygun aday"
-                )
-
-            diagnostics.append(
-                f"{symbol}: "
-                + ", ".join(reasons)
-            )
-
-        return diagnostics
+        return [
+            build_decision_trace(row, robot).to_text()
+            for row in ranked[:limit]
+        ]
 
     def _run_market_intelligence(
         self,
@@ -1068,6 +969,15 @@ class BackgroundOrchestrator:
                 analytics_count,
             )
 
+            intelligence_event_count = self.intelligence_hub.capture_scan(
+                run_id=run_id, rows=rows, market=market, universe=universe,
+                robot=analytics_robot, robot_enabled=robot_enabled,
+            )
+            self.logger.info(
+                "%s/%s intelligence: %s olay kaydedildi",
+                market, universe, intelligence_event_count,
+            )
+
             actions = self._process_robot(
                 rows,
                 market,
@@ -1080,6 +990,11 @@ class BackgroundOrchestrator:
                 for action in actions
                 if action.get("ok")
             ]
+
+            self.intelligence_hub.capture_actions(
+                actions=successful_actions, rows=rows, market=market, universe=universe,
+                account_id=str(getattr(analytics_robot, "account_id", "")),
+            )
 
             self._finish_run(
                 run_id,

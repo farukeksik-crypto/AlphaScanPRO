@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Runtime / local data
+runtime/
+logs/*
+!logs/.gitkeep
+database/*.db
+database/*.db-*
+*.log
+*.lock
+
+# Secrets / local configuration
+.env
+.env.*
+!.env.example
+secrets.toml
+.streamlit/secrets.toml
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build / package
+build/
+dist/
+*.zip
+*.rar

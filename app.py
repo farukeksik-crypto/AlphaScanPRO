@@ -164,8 +164,8 @@ elif page == "Sistem Durumu":
 render_page_glossary(page)
 
 st.caption(
-    "AlphaScan PRO v3.0 Sprint 1: SQLite tabanlı arka plan taraması, "
-    "bağımsız sanal robot, çoklu hisse bilanço analizi ve Türkçe finansal tablolar."
+    "AlphaScan PRO Master 10.40: Robot Intelligence ve Performance Center, "
+    "bağımsız sanal işlem, ölçüm ve kontrollü optimizasyon altyapısı."
 )
 
 

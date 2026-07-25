@@ -212,3 +212,155 @@ def latest_robot_diagnostics(
 
     return results
 
+
+
+FILTER_REASON_LABELS = {
+    "reject_robot_disabled": "Robot kapalı",
+    "reject_decision": "Karar uygun değil",
+    "reject_score": "Puan yetersiz",
+    "reject_confidence": "Güven yetersiz",
+    "reject_probability": "Olasılık yetersiz",
+    "reject_risk": "Risk engeli",
+    "reject_open_position": "Açık pozisyon var",
+}
+
+
+def _filter_decisions_table_exists(connection) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='filter_decisions'"
+    ).fetchone()
+    return row is not None
+
+
+def latest_filter_decisions(
+    database,
+    market: str | None = None,
+    *,
+    limit: int = 500,
+    latest_run_only: bool = True,
+) -> pd.DataFrame:
+    """DecisionTrace tabanlı son filtre kararlarını kullanıcı dostu biçimde döndürür."""
+    market_name = str(market or "").strip().upper()
+    with database.connect() as connection:
+        if not _filter_decisions_table_exists(connection):
+            return pd.DataFrame()
+
+        params: list[Any] = []
+        clauses: list[str] = []
+        if market_name:
+            clauses.append("market = ?")
+            params.append(market_name)
+
+        if latest_run_only:
+            run_query = "SELECT MAX(run_id) FROM filter_decisions"
+            if market_name:
+                run_query += " WHERE market = ?"
+                run_row = connection.execute(run_query, (market_name,)).fetchone()
+            else:
+                run_row = connection.execute(run_query).fetchone()
+            latest_run_id = run_row[0] if run_row else None
+            if latest_run_id is None:
+                return pd.DataFrame()
+            clauses.append("run_id = ?")
+            params.append(int(latest_run_id))
+
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        query = f"""
+            SELECT *
+            FROM filter_decisions
+            {where}
+            ORDER BY accepted DESC, score DESC, probability DESC, confidence DESC, id DESC
+            LIMIT ?
+        """
+        params.append(max(int(limit), 1))
+        return pd.read_sql_query(query, connection, params=params)
+
+
+def filter_decision_dashboard_snapshot(
+    database,
+    market: str | None = None,
+) -> dict[str, Any]:
+    """Son taramanın kabul/red, karar, risk ve engel dağılımını üretir."""
+    frame = latest_filter_decisions(database, market, limit=5000, latest_run_only=True)
+    empty = {
+        "run_id": None,
+        "market": str(market or "").strip().upper(),
+        "universe": "",
+        "created_at": "",
+        "scanned": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "acceptance_rate_pct": 0.0,
+        "decision_counts": pd.DataFrame(columns=["Karar", "Adet"]),
+        "risk_counts": pd.DataFrame(columns=["Risk", "Adet"]),
+        "reason_counts": pd.DataFrame(columns=["Engel", "Adet"]),
+        "details": pd.DataFrame(),
+    }
+    if frame.empty:
+        return empty
+
+    scanned = int(len(frame))
+    accepted = int(frame["accepted"].fillna(0).astype(int).sum())
+    rejected = scanned - accepted
+
+    decision_counts = (
+        frame["decision"].fillna("Belirsiz").replace("", "Belirsiz")
+        .value_counts().rename_axis("Karar").reset_index(name="Adet")
+    )
+    risk_counts = (
+        frame["risk_level"].fillna("Belirsiz").replace("", "Belirsiz")
+        .value_counts().rename_axis("Risk").reset_index(name="Adet")
+    )
+
+    reason_rows = []
+    for column, label in FILTER_REASON_LABELS.items():
+        count = int(frame[column].fillna(0).astype(int).sum()) if column in frame else 0
+        if count:
+            reason_rows.append({"Engel": label, "Adet": count})
+    reason_counts = pd.DataFrame(reason_rows, columns=["Engel", "Adet"])
+    if not reason_counts.empty:
+        reason_counts = reason_counts.sort_values("Adet", ascending=False, ignore_index=True)
+
+    detail_columns = [
+        "symbol", "name", "decision", "score", "confidence", "probability",
+        "risk_level", "accepted", "reject_reasons", "price", "created_at",
+    ]
+    details = frame[[c for c in detail_columns if c in frame.columns]].copy()
+    details["accepted"] = details["accepted"].fillna(0).astype(int).map({1: "Kabul", 0: "Reddedildi"})
+    if "reject_reasons" in details:
+        def translate_reasons(value: Any) -> str:
+            try:
+                codes = json.loads(str(value or "[]"))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                codes = []
+            reverse = {
+                "robot_disabled": "Robot kapalı", "decision": "Karar uygun değil",
+                "score": "Puan yetersiz", "confidence": "Güven yetersiz",
+                "probability": "Olasılık yetersiz", "risk": "Risk engeli",
+                "open_position": "Açık pozisyon var",
+            }
+            return " • ".join(reverse.get(str(code), str(code)) for code in codes) or "—"
+        details["reject_reasons"] = details["reject_reasons"].map(translate_reasons)
+
+    details = details.rename(columns={
+        "symbol": "Kod", "name": "Ad", "decision": "Karar", "score": "Puan",
+        "confidence": "Güven", "probability": "Olasılık %", "risk_level": "Risk",
+        "accepted": "Sonuç", "reject_reasons": "İşlem Açılmama Nedenleri",
+        "price": "Fiyat", "created_at": "Tarih",
+    })
+
+    first = frame.iloc[0]
+    return {
+        "run_id": int(first.get("run_id") or 0),
+        "market": str(first.get("market") or ""),
+        "universe": str(first.get("universe") or ""),
+        "created_at": str(first.get("created_at") or ""),
+        "scanned": scanned,
+        "accepted": accepted,
+        "rejected": rejected,
+        "acceptance_rate_pct": accepted / scanned * 100 if scanned else 0.0,
+        "decision_counts": decision_counts,
+        "risk_counts": risk_counts,
+        "reason_counts": reason_counts,
+        "details": details,
+    }

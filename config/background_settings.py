@@ -261,7 +261,7 @@ def save_background_settings(
         exist_ok=True,
     )
 
-    with path.open("r", encoding="utf-8-sig") as handle:
+    with path.open("w", encoding="utf-8") as handle:
         json.dump(
             payload,
             handle,

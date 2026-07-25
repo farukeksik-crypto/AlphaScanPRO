@@ -219,3 +219,81 @@ def best_walk_forward_profile(results: pd.DataFrame) -> dict[str, Any] | None:
     if valid.empty:
         valid = results[results["Durum"] == "Tamamlandı"]
     return None if valid.empty else valid.iloc[0].to_dict()
+def add_parameter_robustness(results: pd.DataFrame) -> pd.DataFrame:
+    """Score each completed profile by the quality of its neighbouring profiles.
+
+    Robust profiles should not be isolated spikes. The function measures the
+    average walk-forward score around each parameter combination and adds an
+    overfit-risk label without changing existing ranking columns.
+    """
+    if results is None or results.empty:
+        return results.copy() if isinstance(results, pd.DataFrame) else pd.DataFrame()
+
+    frame = results.copy()
+    frame["Komşu Profil"] = 0
+    frame["Komşu Ortalama Puan"] = np.nan
+    frame["Parametre Sağlamlığı"] = np.nan
+    frame["Aşırı Uyum Riski"] = "Bilinmiyor"
+
+    valid_mask = frame["Durum"].eq("Tamamlandı")
+    valid = frame.loc[valid_mask].copy()
+    if valid.empty:
+        return frame
+
+    entry_values = sorted(valid["Minimum Giriş Puanı"].dropna().unique())
+    exit_values = sorted(valid["Çıkış Puanı"].dropna().unique())
+    holding_values = sorted(valid["Maksimum Bekleme"].dropna().unique())
+
+    def adjacent(value, values):
+        idx = values.index(value)
+        return set(values[max(0, idx - 1): min(len(values), idx + 2)])
+
+    for idx, row in valid.iterrows():
+        mask = (
+            valid["Minimum Giriş Puanı"].isin(adjacent(row["Minimum Giriş Puanı"], entry_values))
+            & valid["Çıkış Puanı"].isin(adjacent(row["Çıkış Puanı"], exit_values))
+            & valid["Maksimum Bekleme"].isin(adjacent(row["Maksimum Bekleme"], holding_values))
+        )
+        neighbours = valid.loc[mask & (valid.index != idx)]
+        count = len(neighbours)
+        own_score = _num(row.get("Walk-Forward Puanı"))
+        avg_score = float(neighbours["Walk-Forward Puanı"].mean()) if count else own_score
+        positive_ratio = (
+            float((neighbours["Doğrulama Getirisi %"] > 0).mean() * 100) if count else
+            (100.0 if _num(row.get("Doğrulama Getirisi %")) > 0 else 0.0)
+        )
+        score_gap = max(0.0, own_score - avg_score)
+        robustness = max(0.0, min(100.0, 50.0 + avg_score * 0.45 + positive_ratio * 0.25 - score_gap * 0.9))
+
+        if count < 2:
+            risk = "Yetersiz Komşu"
+        elif score_gap >= 30 or positive_ratio < 40:
+            risk = "Yüksek"
+        elif score_gap >= 15 or positive_ratio < 65:
+            risk = "Orta"
+        else:
+            risk = "Düşük"
+
+        frame.at[idx, "Komşu Profil"] = count
+        frame.at[idx, "Komşu Ortalama Puan"] = round(avg_score, 2)
+        frame.at[idx, "Parametre Sağlamlığı"] = round(robustness, 2)
+        frame.at[idx, "Aşırı Uyum Riski"] = risk
+
+    return frame
+
+
+def best_robust_profile(results: pd.DataFrame) -> dict[str, Any] | None:
+    enriched = add_parameter_robustness(results)
+    if enriched.empty:
+        return None
+    valid = enriched[enriched["Durum"].eq("Tamamlandı")].copy()
+    if valid.empty:
+        return None
+    risk_order = {"Düşük": 3, "Orta": 2, "Yüksek": 1, "Yetersiz Komşu": 0, "Bilinmiyor": 0}
+    valid["_risk"] = valid["Aşırı Uyum Riski"].map(risk_order).fillna(0)
+    valid = valid.sort_values(
+        ["_risk", "Parametre Sağlamlığı", "Walk-Forward Puanı"],
+        ascending=[False, False, False],
+    )
+    return valid.iloc[0].drop(labels=["_risk"]).to_dict()
+

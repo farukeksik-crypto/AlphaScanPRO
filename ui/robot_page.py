@@ -5,8 +5,12 @@ import json
 import pandas as pd
 import streamlit as st
 
-from database.background_repository import latest_results_by_source
+from database.background_repository import (
+    filter_decision_dashboard_snapshot,
+    latest_results_by_source,
+)
 from database.robot_settings_repository import load_robot_settings, save_robot_settings
+from database.intelligence_repository import IntelligenceRepository
 from engine.robot_engine import RobotConfig, RobotEngine
 from engine.market_accounts import MARKET_ACCOUNTS, account_for_market, normalize_market
 from engine.trade_performance_analytics import equity_curve, performance_by, summarize_trade_history
@@ -142,6 +146,24 @@ def _render_position_lifecycle(positions: pd.DataFrame) -> None:
     )
 
 
+
+
+def _render_robot_intelligence_summary(database) -> None:
+    try:
+        summary = IntelligenceRepository(database).summary()
+    except Exception as exc:
+        st.caption(f"Robot Intelligence özeti henüz hazır değil: {exc}")
+        return
+    st.subheader("Robot Intelligence 10.30")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Karar Olayı", summary["decision_events"])
+    c2.metric("Kabul Oranı", f"%{summary['acceptance_rate_pct']:.1f}")
+    c3.metric("Öğrenme Kuyruğu", summary["learning_events"])
+    c4.metric("Trade Snapshot", summary["trade_snapshots"])
+    st.caption(
+        f"Bekleyen öğrenme olayı: {summary['pending_learning_events']} | "
+        f"Açık snapshot: {summary['open_trade_snapshots']}"
+    )
 
 def _candidate_risk_preview(robot, state: dict, row: dict) -> dict:
     # Tarama adayı için işlem açılmadan risk ve miktar önizlemesi üretir.
@@ -442,6 +464,7 @@ def _filter_robot_candidates(
 
 def render_robot(database):
     st.title("🤖 Sanal İşlem Robotu")
+    _render_robot_intelligence_summary(database)
 
     selected_market_label = st.radio(
         "Sanal hesap", ["BIST", "KRIPTO", "EMTIA"], horizontal=True,
@@ -731,6 +754,58 @@ def render_robot(database):
         st.warning("Portföy risk kapasitesinin büyük bölümü kullanıldı.")
     else:
         st.success("Portföy risk kapasitesi yeni işlemler için uygun.")
+
+    dashboard = filter_decision_dashboard_snapshot(
+        database,
+        selected_market_label,
+    )
+
+    st.divider()
+    st.subheader("🧠 Robot Diagnostics Dashboard 10.24B")
+    if dashboard["scanned"]:
+        st.caption(
+            f"Son DecisionTrace taraması: {dashboard['market']} / {dashboard['universe']} · "
+            f"Run #{dashboard['run_id']} · {dashboard['created_at']}"
+        )
+        q1, q2, q3, q4 = st.columns(4)
+        q1.metric("İncelenen Aday", dashboard["scanned"])
+        q2.metric("İşleme Uygun", dashboard["accepted"])
+        q3.metric("Reddedilen", dashboard["rejected"])
+        q4.metric("Kabul Oranı", f"%{dashboard['acceptance_rate_pct']:.1f}")
+
+        tabs = st.tabs(["Engeller", "Kararlar", "Risk Dağılımı", "Karar Ayrıntıları"])
+        with tabs[0]:
+            reasons = dashboard["reason_counts"]
+            if reasons.empty:
+                st.success("Son taramada filtre engeli bulunmadı.")
+            else:
+                st.bar_chart(reasons.set_index("Engel")[["Adet"]], height=300)
+                st.dataframe(reasons, width="stretch", hide_index=True)
+        with tabs[1]:
+            decisions = dashboard["decision_counts"]
+            st.bar_chart(decisions.set_index("Karar")[["Adet"]], height=300)
+            st.dataframe(decisions, width="stretch", hide_index=True)
+        with tabs[2]:
+            risks = dashboard["risk_counts"]
+            st.bar_chart(risks.set_index("Risk")[["Adet"]], height=300)
+            st.dataframe(risks, width="stretch", hide_index=True)
+        with tabs[3]:
+            st.dataframe(
+                dashboard["details"],
+                width="stretch",
+                hide_index=True,
+                column_config={
+                    "Puan": st.column_config.NumberColumn(format="%.1f"),
+                    "Güven": st.column_config.NumberColumn(format="%.1f"),
+                    "Olasılık %": st.column_config.NumberColumn(format="%.1f%%"),
+                    "Fiyat": st.column_config.NumberColumn(format="%.4f"),
+                },
+            )
+    else:
+        st.info(
+            "Henüz DecisionTrace tanılama verisi yok. Background Worker bir tarama "
+            "tamamladığında bu panel otomatik dolacaktır."
+        )
 
     diagnostic = _latest_robot_diagnostics(
         database,
